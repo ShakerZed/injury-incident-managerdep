@@ -1323,14 +1323,17 @@ const InjuryTimeline = () => {
           left: '20px',
           background: 'rgba(0, 0, 0, 0.8)',
           color: 'white',
-          padding: '20px',
+          padding: '15px',
           borderRadius: '10px',
-          maxWidth: '400px',
+          maxWidth: '350px',
+          width: 'calc(100vw - 40px)',
+          maxHeight: 'calc(100vh - 40px)',
+          overflowY: 'auto',
           backdropFilter: 'blur(10px)',
           border: '1px solid rgba(255, 255, 255, 0.1)',
         }}
       >
-        <h1 style={{ margin: '0 0 10px 0', fontSize: '24px', color: '#ff33ff' }}>
+        <h1 style={{ margin: '0 0 10px 0', fontSize: window.innerWidth < 480 ? '18px' : '22px', color: '#ff33ff' }}>
           Injury Recovery Timeline
         </h1>
         <div style={{ marginBottom: '10px', padding: '8px', background: 'rgba(255, 51, 255, 0.1)', borderRadius: '5px' }}>
@@ -1500,7 +1503,14 @@ const InjuryTimeline = () => {
             <h3 style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#ffdd55', fontWeight: 'bold' }}>
               🏆 Milestones Achieved
             </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              gap: '6px',
+              maxHeight: '200px',
+              overflowY: 'auto',
+              paddingRight: '5px'
+            }}>
               {timelineData.filter(e => e.isMilestone).map((event) => {
                 const tierColors = {
                   1: '#aaaaaa',
@@ -1591,9 +1601,12 @@ const InjuryTimeline = () => {
             right: '20px',
             background: 'rgba(0, 0, 0, 0.9)',
             color: 'white',
-            padding: '20px',
+            padding: '15px',
             borderRadius: '10px',
-            maxWidth: '400px',
+            maxWidth: '350px',
+            width: 'calc(100vw - 40px)',
+            maxHeight: 'calc(100vh - 40px)',
+            overflowY: 'auto',
             backdropFilter: 'blur(10px)',
             border: selectedEvent.isMilestone 
               ? '2px solid rgba(255, 221, 85, 0.6)' 
@@ -1822,6 +1835,43 @@ const InjuryTimeline = () => {
             to {
               opacity: 1;
               transform: translateX(0);
+            }
+          }
+          
+          /* Custom scrollbar styles */
+          div::-webkit-scrollbar {
+            width: 8px;
+          }
+          
+          div::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+          }
+          
+          div::-webkit-scrollbar-thumb {
+            background: rgba(255, 51, 255, 0.5);
+            border-radius: 4px;
+          }
+          
+          div::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 51, 255, 0.7);
+          }
+          
+          /* Mobile optimizations */
+          @media (max-width: 768px) {
+            /* Make panels even smaller on mobile */
+            body {
+              font-size: 14px;
+            }
+          }
+          
+          @media (max-width: 480px) {
+            /* Extra small screens */
+            h1 {
+              font-size: 18px !important;
+            }
+            h2 {
+              font-size: 16px !important;
             }
           }
         `}
