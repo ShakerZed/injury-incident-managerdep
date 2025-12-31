@@ -1,3 +1,91 @@
+# Injury Recovery Timeline - Vercel Deployment
+
+## 🚀 Quick Deploy to Vercel (3 Minutes)
+
+### **Option 1: Deploy via Vercel CLI** (Recommended)
+
+#### Step 1: Install Vercel CLI
+```bash
+npm install -g vercel
+```
+
+#### Step 2: Navigate to deployment folder
+```bash
+cd deployment
+```
+
+#### Step 3: Deploy!
+```bash
+vercel
+```
+
+**Follow the prompts:**
+- "Set up and deploy?" → **Yes**
+- "Which scope?" → Choose your account
+- "Link to existing project?" → **No**
+- "What's your project's name?" → **injury-recovery-timeline** (or your choice)
+- "In which directory is your code located?" → **./** (press Enter)
+- "Want to override the settings?" → **No**
+
+**Done!** Vercel will give you a live URL like: `https://injury-recovery-timeline.vercel.app`
+
+---
+
+### **Option 2: Deploy via Vercel Website**
+
+#### Step 1: Create a GitHub Repository
+1. Go to https://github.com/new
+2. Name: `injury-recovery-timeline`
+3. Create repository
+
+#### Step 2: Push code to GitHub
+```bash
+cd deployment
+git init
+git add .
+git commit -m "Initial commit - Injury Recovery Timeline"
+git branch -M main
+git remote add origin https://github.com/YOUR_USERNAME/injury-recovery-timeline.git
+git push -u origin main
+```
+
+#### Step 3: Deploy on Vercel
+1. Go to https://vercel.com
+2. Click "Add New" → "Project"
+3. Import your GitHub repository
+4. Vercel auto-detects Vite
+5. Click "Deploy"
+
+**Done!** Your site is live in ~2 minutes.
+
+---
+
+## 🛠️ Local Development
+
+### Install dependencies:
+```bash
+npm install
+```
+
+### Run development server:
+```bash
+npm run dev
+```
+
+Visit: `http://localhost:5173`
+
+### Build for production:
+```bash
+npm run build
+```
+
+### Preview production build:
+```bash
+npm run preview
+```
+
+---
+
 ## 📁 Project Structure
 
 ```

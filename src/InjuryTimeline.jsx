@@ -1276,10 +1276,36 @@ const InjuryTimeline = () => {
   };
 
   const resetTimeline = () => {
-    if (confirm('Reset to default timeline? This will erase all your custom data.')) {
-      setTimelineData(initialTimelineData);
+    if (confirm('Reset to default timeline? This will erase all your custom data and reload the page.')) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('injuryTimelineData');
+        window.location.reload();
+      }
+    }
+  };
+
+  const clearTimeline = () => {
+    if (confirm('Start a fresh timeline? This will clear all data and create an empty timeline for a new injury.')) {
+      const emptyTimeline = [{
+        id: '0-START',
+        date: new Date().toLocaleString('en-US', { 
+          month: 'short', 
+          day: 'numeric', 
+          hour: 'numeric', 
+          minute: '2-digit', 
+          hour12: true 
+        }),
+        title: 'START - New Injury',
+        description: 'Click "Add Update" to begin tracking your recovery',
+        pain: 0,
+        type: 'assessment',
+        hours: 0,
+        functional: 'Ready to track recovery progress',
+      }];
+      setTimelineData(emptyTimeline);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('injuryTimelineData', JSON.stringify(emptyTimeline));
+        window.location.reload();
       }
     }
   };
@@ -1419,6 +1445,21 @@ const InjuryTimeline = () => {
           >
             Reset to Default
           </button>
+          
+          <button
+            onClick={clearTimeline}
+            style={{
+              padding: '6px',
+              background: '#ffaa33',
+              border: 'none',
+              borderRadius: '5px',
+              color: 'white',
+              cursor: 'pointer',
+              fontSize: '10px',
+            }}
+          >
+            🆕 Start Fresh Timeline
+          </button>
         </div>
         
         {/* Quick Instructions */}
@@ -1430,14 +1471,20 @@ const InjuryTimeline = () => {
           border: '1px solid rgba(68, 136, 255, 0.3)'
         }}>
           <p style={{ margin: '0 0 5px 0', fontSize: '11px', fontWeight: 'bold', color: '#4488ff' }}>
-            💡 For Others to Use:
+            💡 Quick Start Guide:
           </p>
           <p style={{ margin: '0', fontSize: '10px', color: '#aaa', lineHeight: '1.4' }}>
-            1. Click "Add Update" to log progress<br/>
-            2. Export timeline to save your data<br/>
-            3. Share the exported file with others<br/>
-            4. They can Import to view your recovery<br/>
-            <span style={{ fontSize: '9px', color: '#666' }}>📦 Auto-saved to browser</span>
+            <strong style={{ color: '#4488ff' }}>New User?</strong><br/>
+            1. Click "🆕 Start Fresh Timeline" below<br/>
+            2. Click "Add Update" to log your first injury event<br/>
+            3. Continue adding updates as you recover<br/>
+            <br/>
+            <strong style={{ color: '#4488ff' }}>Viewing a Shared Timeline?</strong><br/>
+            • Click events to view details<br/>
+            • Use arrow keys to navigate<br/>
+            • Click milestone spheres for VFX! 🎆<br/>
+            <br/>
+            <span style={{ fontSize: '9px', color: '#666' }}>📦 Auto-saves to browser | Export to backup</span>
           </p>
         </div>
         
