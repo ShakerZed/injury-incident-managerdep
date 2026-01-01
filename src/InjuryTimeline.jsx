@@ -393,6 +393,14 @@ const InjuryTimeline = () => {
   const targetCameraPosition = useRef(new THREE.Vector3(0, 5, 15));
   const targetLookAt = useRef(new THREE.Vector3(0, 0, 0));
   const currentLookAt = useRef(new THREE.Vector3(0, 0, 0));
+  
+  // Camera orbit controls
+  const isDraggingRef = useRef(false);
+  const cameraAngleRef = useRef(0); // Horizontal rotation angle
+  const cameraElevationRef = useRef(0.3); // Vertical angle (radians)
+  const cameraDistanceRef = useRef(15); // Distance from center
+  const lastMousePosRef = useRef({ x: 0, y: 0 });
+  const autoRotateSpeedRef = useRef(0.3); // Speed of auto-rotation
 
   // Helper: create radial texture for VFX
   const makeRadialTexture = () => {
@@ -981,12 +989,99 @@ const InjuryTimeline = () => {
         renderer.domElement.style.cursor = 'pointer';
       } else {
         hoveredIndexRef.current = null;
-        renderer.domElement.style.cursor = 'default';
+        renderer.domElement.style.cursor = 'grab';
       }
     };
 
     renderer.domElement.addEventListener('pointerdown', onCanvasPointer);
     renderer.domElement.addEventListener('pointermove', onCanvasMove);
+
+    // Camera orbit controls - drag to rotate
+    const onOrbitStart = (e) => {
+      // Only start drag if not clicking on a sphere (event sphere clicks handled by onCanvasPointer)
+      const rect = renderer.domElement.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera({ x, y }, camera);
+      const intersects = raycaster.intersectObjects(eventSpheresRef.current);
+      
+      // Only start orbit if NOT clicking on a sphere
+      if (intersects.length === 0) {
+        isDraggingRef.current = true;
+        lastMousePosRef.current = { x: e.clientX, y: e.clientY };
+        renderer.domElement.style.cursor = 'grabbing';
+      }
+    };
+    
+    const onOrbitMove = (e) => {
+      if (!isDraggingRef.current) return;
+      
+      const deltaX = e.clientX - lastMousePosRef.current.x;
+      const deltaY = e.clientY - lastMousePosRef.current.y;
+      
+      // Update camera angle (horizontal rotation)
+      cameraAngleRef.current -= deltaX * 0.005; // Sensitivity
+      
+      // Update camera elevation (vertical rotation) with limits
+      cameraElevationRef.current += deltaY * 0.005;
+      cameraElevationRef.current = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, cameraElevationRef.current));
+      
+      lastMousePosRef.current = { x: e.clientX, y: e.clientY };
+    };
+    
+    const onOrbitEnd = () => {
+      isDraggingRef.current = false;
+      renderer.domElement.style.cursor = 'grab';
+    };
+    
+    // Mouse events
+    renderer.domElement.addEventListener('mousedown', onOrbitStart);
+    window.addEventListener('mousemove', onOrbitMove);
+    window.addEventListener('mouseup', onOrbitEnd);
+    
+    // Touch events for mobile
+    const onTouchStart = (e) => {
+      if (e.touches.length === 1) {
+        const touch = e.touches[0];
+        const rect = renderer.domElement.getBoundingClientRect();
+        const x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
+        const y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
+        
+        const raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera({ x, y }, camera);
+        const intersects = raycaster.intersectObjects(eventSpheresRef.current);
+        
+        if (intersects.length === 0) {
+          isDraggingRef.current = true;
+          lastMousePosRef.current = { x: touch.clientX, y: touch.clientY };
+        }
+      }
+    };
+    
+    const onTouchMove = (e) => {
+      if (!isDraggingRef.current || e.touches.length !== 1) return;
+      
+      e.preventDefault(); // Prevent page scroll while rotating
+      const touch = e.touches[0];
+      const deltaX = touch.clientX - lastMousePosRef.current.x;
+      const deltaY = touch.clientY - lastMousePosRef.current.y;
+      
+      cameraAngleRef.current -= deltaX * 0.005;
+      cameraElevationRef.current += deltaY * 0.005;
+      cameraElevationRef.current = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, cameraElevationRef.current));
+      
+      lastMousePosRef.current = { x: touch.clientX, y: touch.clientY };
+    };
+    
+    const onTouchEnd = () => {
+      isDraggingRef.current = false;
+    };
+    
+    renderer.domElement.addEventListener('touchstart', onTouchStart, { passive: false });
+    renderer.domElement.addEventListener('touchmove', onTouchMove, { passive: false });
+    renderer.domElement.addEventListener('touchend', onTouchEnd);
 
     // Animation
     let time = 0;
@@ -995,10 +1090,20 @@ const InjuryTimeline = () => {
       time += 0.01;
 
       // Rotate camera around scene or smoothly move to target
+      if (isRotatingRef.current && !isDraggingRef.current) {
+        // Auto-rotate when not dragging
+        cameraAngleRef.current = time * autoRotateSpeedRef.current;
+      }
+      
       if (isRotatingRef.current) {
-        camera.position.x = Math.cos(time * 0.3) * 15;
-        camera.position.z = Math.sin(time * 0.3) * 15;
-        camera.position.y = 5; // Fixed Y for horizontal orbit; adjust if vertical orbit needed
+        // Calculate camera position using spherical coordinates
+        const angle = cameraAngleRef.current;
+        const elevation = cameraElevationRef.current;
+        const distance = cameraDistanceRef.current;
+        
+        camera.position.x = Math.cos(angle) * Math.cos(elevation) * distance;
+        camera.position.y = Math.sin(elevation) * distance + 5;
+        camera.position.z = Math.sin(angle) * Math.cos(elevation) * distance;
         camera.lookAt(0, 0, 0);
         currentLookAt.current.set(0, 0, 0);
       } else {
@@ -1122,6 +1227,14 @@ const InjuryTimeline = () => {
       renderer.domElement.removeEventListener('pointerdown', onCanvasPointer);
       renderer.domElement.removeEventListener('pointermove', onCanvasMove);
       window.removeEventListener('resize', handleResize);
+      
+      // Remove orbit control listeners
+      renderer.domElement.removeEventListener('mousedown', onOrbitStart);
+      window.removeEventListener('mousemove', onOrbitMove);
+      window.removeEventListener('mouseup', onOrbitEnd);
+      renderer.domElement.removeEventListener('touchstart', onTouchStart);
+      renderer.domElement.removeEventListener('touchmove', onTouchMove);
+      renderer.domElement.removeEventListener('touchend', onTouchEnd);
       
       // Use Sets to track disposed resources and avoid double-disposal
       const disposedGeometries = new Set();
