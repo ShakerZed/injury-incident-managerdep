@@ -701,8 +701,9 @@ const InjuryTimeline = () => {
 
     // Scene setup - ONLY RUNS ONCE
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a0a0a);
-    scene.fog = new THREE.Fog(0x0a0a0a, 10, 50);
+    // Enhanced background with subtle purple gradient
+    scene.background = new THREE.Color(0x0a0a14);
+    scene.fog = new THREE.Fog(0x0a0a14, 15, 60);
     sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(
@@ -728,17 +729,34 @@ const InjuryTimeline = () => {
     
     mountRef.current.appendChild(renderer.domElement);
 
-    // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    // Enhanced lighting for better visual depth
+    const ambientLight = new THREE.AmbientLight(0x6666ff, 0.3); // Subtle purple ambient
     scene.add(ambientLight);
 
-    const pointLight = new THREE.PointLight(0xffffff, 1, 100);
-    pointLight.position.set(10, 10, 10);
-    scene.add(pointLight);
+    // Main key light
+    const keyLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    keyLight.position.set(10, 15, 10);
+    scene.add(keyLight);
 
-    const pointLight2 = new THREE.PointLight(0x4488ff, 0.5, 100);
-    pointLight2.position.set(-10, -10, -10);
-    scene.add(pointLight2);
+    // Rim light for depth
+    const rimLight = new THREE.DirectionalLight(0xff33ff, 0.4);
+    rimLight.position.set(-10, 5, -10);
+    scene.add(rimLight);
+
+    // Accent point lights for sparkle
+    const accentLight1 = new THREE.PointLight(0x4488ff, 1.5, 50);
+    accentLight1.position.set(5, 8, 5);
+    scene.add(accentLight1);
+
+    const accentLight2 = new THREE.PointLight(0xff33ff, 1.2, 50);
+    accentLight2.position.set(-5, -3, -8);
+    scene.add(accentLight2);
+    
+    // Enhanced renderer settings
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
 
     // Create timeline path
     const eventSpheres = [];
@@ -756,13 +774,13 @@ const InjuryTimeline = () => {
     const getMaterial = (color, isMilestone = false) => {
       const key = `${color}_${isMilestone}`;
       if (!materialCache[key]) {
-        materialCache[key] = new THREE.MeshPhongMaterial({
+        materialCache[key] = new THREE.MeshStandardMaterial({
           color: color,
           emissive: color,
-          emissiveIntensity: isMilestone ? 0.5 : 0.3,
-          shininess: isMilestone ? 150 : 100,
-          transparent: true,
-          opacity: 1.0,
+          emissiveIntensity: isMilestone ? 0.6 : 0.4,
+          metalness: isMilestone ? 0.8 : 0.6,
+          roughness: isMilestone ? 0.2 : 0.4,
+          transparent: false,
         });
       }
       return materialCache[key];
@@ -774,7 +792,7 @@ const InjuryTimeline = () => {
         materialCache[glowKey] = new THREE.MeshBasicMaterial({
           color: color,
           transparent: true,
-          opacity: isMilestone ? 0.3 : 0.2,
+          opacity: isMilestone ? 0.4 : 0.25,
         });
       }
       return materialCache[glowKey];
@@ -1482,28 +1500,31 @@ const InjuryTimeline = () => {
             position: 'absolute',
             top: '20px',
             left: '20px',
-            background: 'rgba(255, 51, 255, 0.9)',
-            border: 'none',
-            borderRadius: '10px',
-            width: '50px',
-            height: '50px',
+            background: 'linear-gradient(135deg, rgba(255, 51, 255, 0.95), rgba(136, 68, 255, 0.95))',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            borderRadius: '12px',
+            width: '54px',
+            height: '54px',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: '24px',
+            fontSize: '26px',
             color: 'white',
-            boxShadow: '0 4px 12px rgba(255, 51, 255, 0.4)',
+            boxShadow: '0 8px 24px rgba(255, 51, 255, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1) inset',
             zIndex: 1000,
-            transition: 'all 0.3s ease',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            backdropFilter: 'blur(10px)',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(255, 51, 255, 1)';
-            e.currentTarget.style.transform = 'scale(1.1)';
+            e.currentTarget.style.background = 'linear-gradient(135deg, rgba(255, 51, 255, 1), rgba(136, 68, 255, 1))';
+            e.currentTarget.style.transform = 'scale(1.08) translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 12px 32px rgba(255, 51, 255, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.2) inset';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(255, 51, 255, 0.9)';
+            e.currentTarget.style.background = 'linear-gradient(135deg, rgba(255, 51, 255, 0.95), rgba(136, 68, 255, 0.95))';
             e.currentTarget.style.transform = 'scale(1)';
+            e.currentTarget.style.boxShadow = '0 8px 24px rgba(255, 51, 255, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1) inset';
           }}
         >
           ☰
@@ -1534,47 +1555,61 @@ const InjuryTimeline = () => {
           position: 'absolute',
           top: '20px',
           left: isPanelVisible ? '20px' : '-400px',
-          background: 'rgba(0, 0, 0, 0.8)',
+          background: 'linear-gradient(135deg, rgba(10, 10, 20, 0.85), rgba(20, 10, 30, 0.9))',
           color: 'white',
-          padding: '15px',
-          borderRadius: '10px',
+          padding: '18px',
+          borderRadius: '16px',
           maxWidth: '350px',
           width: 'calc(100vw - 40px)',
           maxHeight: 'calc(100vh - 40px)',
           overflowY: 'auto',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          transition: 'left 0.3s ease-in-out',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          border: '1px solid rgba(255, 255, 255, 0.15)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05) inset',
+          transition: 'left 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
           zIndex: 999,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-          <h1 style={{ margin: '0', fontSize: window.innerWidth < 480 ? '18px' : '22px', color: '#ff33ff' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+          <h1 style={{ 
+            margin: '0', 
+            fontSize: window.innerWidth < 480 ? '19px' : '24px', 
+            background: 'linear-gradient(135deg, #ff33ff, #8844ff)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            fontWeight: '700',
+            letterSpacing: '-0.5px',
+          }}>
             Injury Recovery Timeline
           </h1>
           <button
             onClick={() => setIsPanelVisible(false)}
             style={{
-              background: 'rgba(255, 51, 255, 0.2)',
-              border: '1px solid rgba(255, 51, 255, 0.4)',
-              borderRadius: '5px',
-              width: '30px',
-              height: '30px',
+              background: 'linear-gradient(135deg, rgba(255, 51, 255, 0.25), rgba(136, 68, 255, 0.25))',
+              border: '1px solid rgba(255, 51, 255, 0.5)',
+              borderRadius: '8px',
+              width: '32px',
+              height: '32px',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '18px',
-              color: '#ff33ff',
+              fontSize: '20px',
+              color: '#ff88ff',
               flexShrink: 0,
               marginLeft: '10px',
-              transition: 'all 0.2s',
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              fontWeight: '300',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 51, 255, 0.4)';
+              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(255, 51, 255, 0.4), rgba(136, 68, 255, 0.4))';
+              e.currentTarget.style.transform = 'scale(1.05)';
+              e.currentTarget.style.color = '#ffaaff';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 51, 255, 0.2)';
+              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(255, 51, 255, 0.25), rgba(136, 68, 255, 0.25))';
+              e.currentTarget.style.transform = 'scale(1)';
+              e.currentTarget.style.color = '#ff88ff';
             }}
             title="Hide panel"
           >
@@ -1627,14 +1662,26 @@ const InjuryTimeline = () => {
           <button
             onClick={() => setShowAddForm(true)}
             style={{
-              padding: '10px',
-              background: '#ff33ff',
-              border: 'none',
-              borderRadius: '5px',
+              padding: '12px 16px',
+              background: 'linear-gradient(135deg, #ff33ff, #aa22cc)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              borderRadius: '10px',
               color: 'white',
               cursor: 'pointer',
-              fontSize: '13px',
-              fontWeight: 'bold',
+              fontSize: '14px',
+              fontWeight: '600',
+              boxShadow: '0 4px 12px rgba(255, 51, 255, 0.3)',
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, #ff55ff, #cc44ee)';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+              e.currentTarget.style.boxShadow = '0 6px 16px rgba(255, 51, 255, 0.4)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(135deg, #ff33ff, #aa22cc)';
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 51, 255, 0.3)';
             }}
           >
             + Add Update
@@ -1645,13 +1692,24 @@ const InjuryTimeline = () => {
               onClick={exportTimeline}
               style={{
                 flex: 1,
-                padding: '8px',
-                background: '#4488ff',
-                border: 'none',
-                borderRadius: '5px',
+                padding: '10px',
+                background: 'linear-gradient(135deg, #4488ff, #2266dd)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '8px',
                 color: 'white',
                 cursor: 'pointer',
-                fontSize: '11px',
+                fontSize: '12px',
+                fontWeight: '500',
+                boxShadow: '0 2px 8px rgba(68, 136, 255, 0.3)',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, #5599ff, #3377ee)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(68, 136, 255, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, #4488ff, #2266dd)';
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(68, 136, 255, 0.3)';
               }}
             >
               Export
@@ -1665,14 +1723,25 @@ const InjuryTimeline = () => {
                 style={{ display: 'none' }}
               />
               <div style={{
-                padding: '8px',
-                background: '#4488ff',
-                border: 'none',
-                borderRadius: '5px',
+                padding: '10px',
+                background: 'linear-gradient(135deg, #4488ff, #2266dd)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '8px',
                 color: 'white',
                 cursor: 'pointer',
-                fontSize: '11px',
+                fontSize: '12px',
+                fontWeight: '500',
                 textAlign: 'center',
+                boxShadow: '0 2px 8px rgba(68, 136, 255, 0.3)',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, #5599ff, #3377ee)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(68, 136, 255, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, #4488ff, #2266dd)';
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(68, 136, 255, 0.3)';
               }}>
                 Import
               </div>
@@ -1844,34 +1913,57 @@ const InjuryTimeline = () => {
             position: 'absolute',
             top: '20px',
             right: '20px',
-            background: 'rgba(0, 0, 0, 0.9)',
+            background: selectedEvent.isMilestone
+              ? 'linear-gradient(135deg, rgba(30, 20, 10, 0.92), rgba(40, 30, 20, 0.95))'
+              : 'linear-gradient(135deg, rgba(10, 10, 20, 0.90), rgba(20, 10, 30, 0.92))',
             color: 'white',
-            padding: '15px',
-            borderRadius: '10px',
-            maxWidth: '350px',
-            width: 'calc(100vw - 40px)',
-            maxHeight: 'calc(100vh - 40px)',
+            padding: '16px',
+            borderRadius: '16px',
+            maxWidth: '320px',
+            width: typeof window !== 'undefined' && window.innerWidth <= 768 
+              ? 'calc(100vw - 40px)' 
+              : '320px',
+            maxHeight: typeof window !== 'undefined' && window.innerWidth <= 768
+              ? '50vh'
+              : '55vh',
             overflowY: 'auto',
-            backdropFilter: 'blur(10px)',
+            overflowX: 'hidden',
+            backdropFilter: 'blur(20px) saturate(180%)',
             border: selectedEvent.isMilestone 
-              ? '2px solid rgba(255, 221, 85, 0.6)' 
-              : '1px solid rgba(255, 255, 255, 0.2)',
+              ? '1px solid rgba(255, 221, 85, 0.4)' 
+              : '1px solid rgba(255, 255, 255, 0.15)',
             boxShadow: selectedEvent.isMilestone
-              ? '0 0 20px rgba(255, 221, 85, 0.3)'
-              : 'none',
-            animation: 'slideIn 0.3s ease-out',
+              ? '0 8px 32px rgba(255, 221, 85, 0.25), 0 0 60px rgba(255, 221, 85, 0.15), 0 0 0 1px rgba(255, 221, 85, 0.1) inset'
+              : '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05) inset',
+            animation: 'slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
           }}
         >
+          {/* Scroll Hint - appears when content is longer than container */}
+          <div style={{
+            marginBottom: '12px',
+            padding: '6px 10px',
+            background: 'rgba(136, 68, 255, 0.15)',
+            borderRadius: '8px',
+            border: '1px solid rgba(136, 68, 255, 0.3)',
+            fontSize: '11px',
+            color: '#aa88ff',
+            textAlign: 'center',
+            fontWeight: '500',
+          }}>
+            ↕️ Scroll to see more
+          </div>
+          
           {selectedEvent.isMilestone && (
             <div style={{
-              marginBottom: '12px',
-              padding: '8px 12px',
-              background: 'rgba(255, 221, 85, 0.2)',
-              borderRadius: '5px',
-              border: '1px solid rgba(255, 221, 85, 0.4)',
+              marginBottom: '14px',
+              padding: '10px 14px',
+              background: 'linear-gradient(135deg, rgba(255, 221, 85, 0.2), rgba(255, 200, 50, 0.15))',
+              borderRadius: '10px',
+              border: '1px solid rgba(255, 221, 85, 0.3)',
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
+              gap: '10px',
+              boxShadow: '0 0 20px rgba(255, 221, 85, 0.1) inset',
             }}>
               <span style={{ fontSize: '20px' }}>
                 {selectedEvent.milestone?.type === 'stability' && '🛡️'}
@@ -1884,28 +1976,41 @@ const InjuryTimeline = () => {
                 {!selectedEvent.milestone?.type && '🏆'}
               </span>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '10px', color: '#ffdd55', fontWeight: 'bold' }}>
-                  MILESTONE - Tier {selectedEvent.milestone?.tier || 1}
+                <div style={{ 
+                  fontSize: '11px', 
+                  color: '#ffdd55', 
+                  fontWeight: '700',
+                  letterSpacing: '0.5px',
+                  textTransform: 'uppercase',
+                }}>
+                  Milestone - Tier {selectedEvent.milestone?.tier || 1}
                 </div>
-                <div style={{ fontSize: '11px', color: '#ffffaa', marginTop: '2px' }}>
+                <div style={{ fontSize: '12px', color: '#ffffcc', marginTop: '3px', fontWeight: '500' }}>
                   {selectedEvent.milestone?.label}
                 </div>
               </div>
             </div>
           )}
           
-          <h2 style={{ margin: '0 0 5px 0', fontSize: '20px', color: selectedEvent.isMilestone ? '#ffdd55' : '#4488ff' }}>
+          <h2 style={{ 
+            margin: '0 0 6px 0', 
+            fontSize: '21px', 
+            color: selectedEvent.isMilestone ? '#ffdd55' : '#66aaff',
+            fontWeight: '600',
+            letterSpacing: '-0.3px',
+          }}>
             {selectedEvent.title}
           </h2>
-          <p style={{ margin: '5px 0', fontSize: '12px', color: '#888' }}>
+          <p style={{ margin: '5px 0', fontSize: '12px', color: '#999', fontWeight: '500' }}>
             {selectedEvent.date} (+{selectedEvent.hours}h)
           </p>
           <div
             style={{
-              margin: '10px 0',
-              padding: '10px',
-              background: 'rgba(255, 255, 255, 0.05)',
-              borderRadius: '5px',
+              margin: '12px 0',
+              padding: '12px',
+              background: 'rgba(255, 255, 255, 0.04)',
+              borderRadius: '8px',
+              border: '1px solid rgba(255, 255, 255, 0.06)',
             }}
           >
             <p style={{ margin: '0', fontSize: '14px', lineHeight: '1.6' }}>
