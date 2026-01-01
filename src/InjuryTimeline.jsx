@@ -1266,13 +1266,47 @@ const InjuryTimeline = () => {
       reader.onload = (e) => {
         try {
           const imported = JSON.parse(e.target.result);
-          setTimelineData(imported);
+          
+          // Check if importing a single event or full timeline
+          if (Array.isArray(imported)) {
+            // Full timeline array - ask user if they want to replace
+            if (confirm(`Replace entire timeline with ${imported.length} events? This will erase your current data.`)) {
+              setTimelineData(imported);
+              alert('Timeline replaced successfully!');
+            }
+          } else if (imported && typeof imported === 'object' && imported.id) {
+            // Single event object - add to existing timeline
+            // Check for duplicate ID
+            const existingIndex = timelineData.findIndex(e => e.id === imported.id);
+            
+            if (existingIndex !== -1) {
+              // Duplicate found - ask to replace
+              if (confirm(`Event "${imported.title}" already exists. Replace it?`)) {
+                const updatedData = [...timelineData];
+                updatedData[existingIndex] = imported;
+                setTimelineData(updatedData);
+                alert('Event updated successfully!');
+              }
+            } else {
+              // New event - add to timeline
+              const updatedData = [...timelineData, imported];
+              // Sort by hours to maintain chronological order
+              updatedData.sort((a, b) => a.hours - b.hours);
+              setTimelineData(updatedData);
+              alert(`Event "${imported.title}" added successfully!`);
+            }
+          } else {
+            alert('Invalid format: Please import either a single event object or an array of events');
+          }
         } catch (error) {
-          alert('Error importing timeline: Invalid JSON file');
+          alert('Error importing timeline: Invalid JSON file\n\n' + error.message);
+          console.error('Import error:', error);
         }
       };
       reader.readAsText(file);
     }
+    // Reset file input so same file can be imported again
+    event.target.value = '';
   };
 
   const resetTimeline = () => {
@@ -1323,17 +1357,14 @@ const InjuryTimeline = () => {
           left: '20px',
           background: 'rgba(0, 0, 0, 0.8)',
           color: 'white',
-          padding: '15px',
+          padding: '20px',
           borderRadius: '10px',
-          maxWidth: '350px',
-          width: 'calc(100vw - 40px)',
-          maxHeight: 'calc(100vh - 40px)',
-          overflowY: 'auto',
+          maxWidth: '400px',
           backdropFilter: 'blur(10px)',
           border: '1px solid rgba(255, 255, 255, 0.1)',
         }}
       >
-        <h1 style={{ margin: '0 0 10px 0', fontSize: window.innerWidth < 480 ? '18px' : '22px', color: '#ff33ff' }}>
+        <h1 style={{ margin: '0 0 10px 0', fontSize: '24px', color: '#ff33ff' }}>
           Injury Recovery Timeline
         </h1>
         <div style={{ marginBottom: '10px', padding: '8px', background: 'rgba(255, 51, 255, 0.1)', borderRadius: '5px' }}>
@@ -1503,14 +1534,7 @@ const InjuryTimeline = () => {
             <h3 style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#ffdd55', fontWeight: 'bold' }}>
               🏆 Milestones Achieved
             </h3>
-            <div style={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              gap: '6px',
-              maxHeight: '200px',
-              overflowY: 'auto',
-              paddingRight: '5px'
-            }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {timelineData.filter(e => e.isMilestone).map((event) => {
                 const tierColors = {
                   1: '#aaaaaa',
@@ -1601,12 +1625,9 @@ const InjuryTimeline = () => {
             right: '20px',
             background: 'rgba(0, 0, 0, 0.9)',
             color: 'white',
-            padding: '15px',
+            padding: '20px',
             borderRadius: '10px',
-            maxWidth: '350px',
-            width: 'calc(100vw - 40px)',
-            maxHeight: 'calc(100vh - 40px)',
-            overflowY: 'auto',
+            maxWidth: '400px',
             backdropFilter: 'blur(10px)',
             border: selectedEvent.isMilestone 
               ? '2px solid rgba(255, 221, 85, 0.6)' 
@@ -1835,43 +1856,6 @@ const InjuryTimeline = () => {
             to {
               opacity: 1;
               transform: translateX(0);
-            }
-          }
-          
-          /* Custom scrollbar styles */
-          div::-webkit-scrollbar {
-            width: 8px;
-          }
-          
-          div::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 4px;
-          }
-          
-          div::-webkit-scrollbar-thumb {
-            background: rgba(255, 51, 255, 0.5);
-            border-radius: 4px;
-          }
-          
-          div::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 51, 255, 0.7);
-          }
-          
-          /* Mobile optimizations */
-          @media (max-width: 768px) {
-            /* Make panels even smaller on mobile */
-            body {
-              font-size: 14px;
-            }
-          }
-          
-          @media (max-width: 480px) {
-            /* Extra small screens */
-            h1 {
-              font-size: 18px !important;
-            }
-            h2 {
-              font-size: 16px !important;
             }
           }
         `}
