@@ -379,6 +379,14 @@ const InjuryTimeline = () => {
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   
+  // Panel visibility - hidden by default on mobile
+  const [isPanelVisible, setIsPanelVisible] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth > 768; // Show on desktop, hide on mobile/tablet
+    }
+    return true;
+  });
+  
   // Use refs for animation state to avoid rebuilding scene
   const isRotatingRef = useRef(true);
   const selectedIndexRef = useRef(null);
@@ -1466,13 +1474,66 @@ const InjuryTimeline = () => {
     <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden' }}>
       <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
       
+      {/* Toggle Panel Button - Only visible when panel is hidden */}
+      {!isPanelVisible && (
+        <button
+          onClick={() => setIsPanelVisible(true)}
+          style={{
+            position: 'absolute',
+            top: '20px',
+            left: '20px',
+            background: 'rgba(255, 51, 255, 0.9)',
+            border: 'none',
+            borderRadius: '10px',
+            width: '50px',
+            height: '50px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '24px',
+            color: 'white',
+            boxShadow: '0 4px 12px rgba(255, 51, 255, 0.4)',
+            zIndex: 1000,
+            transition: 'all 0.3s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(255, 51, 255, 1)';
+            e.currentTarget.style.transform = 'scale(1.1)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(255, 51, 255, 0.9)';
+            e.currentTarget.style.transform = 'scale(1)';
+          }}
+        >
+          ☰
+        </button>
+      )}
+      
+      {/* Overlay - tap to close panel on mobile */}
+      {isPanelVisible && typeof window !== 'undefined' && window.innerWidth <= 768 && (
+        <div
+          onClick={() => setIsPanelVisible(false)}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.3)',
+            zIndex: 998,
+            animation: 'fadeIn 0.3s ease',
+          }}
+        />
+      )}
+      
       {/* Info Panel */}
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
           position: 'absolute',
           top: '20px',
-          left: '20px',
+          left: isPanelVisible ? '20px' : '-400px',
           background: 'rgba(0, 0, 0, 0.8)',
           color: 'white',
           padding: '15px',
@@ -1483,11 +1544,43 @@ const InjuryTimeline = () => {
           overflowY: 'auto',
           backdropFilter: 'blur(10px)',
           border: '1px solid rgba(255, 255, 255, 0.1)',
+          transition: 'left 0.3s ease-in-out',
+          zIndex: 999,
         }}
       >
-        <h1 style={{ margin: '0 0 10px 0', fontSize: window.innerWidth < 480 ? '18px' : '22px', color: '#ff33ff' }}>
-          Injury Recovery Timeline
-        </h1>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+          <h1 style={{ margin: '0', fontSize: window.innerWidth < 480 ? '18px' : '22px', color: '#ff33ff' }}>
+            Injury Recovery Timeline
+          </h1>
+          <button
+            onClick={() => setIsPanelVisible(false)}
+            style={{
+              background: 'rgba(255, 51, 255, 0.2)',
+              border: '1px solid rgba(255, 51, 255, 0.4)',
+              borderRadius: '5px',
+              width: '30px',
+              height: '30px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '18px',
+              color: '#ff33ff',
+              flexShrink: 0,
+              marginLeft: '10px',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 51, 255, 0.4)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 51, 255, 0.2)';
+            }}
+            title="Hide panel"
+          >
+            ×
+          </button>
+        </div>
         <div style={{ marginBottom: '10px', padding: '8px', background: 'rgba(255, 51, 255, 0.1)', borderRadius: '5px' }}>
           <p style={{ margin: '0', fontSize: '12px', color: '#ff33ff' }}>
             <strong>{timelineData.length} events</strong> tracked over <strong>{Math.round(timelineData[timelineData.length - 1]?.hours || 0)}h</strong>
@@ -1987,6 +2080,15 @@ const InjuryTimeline = () => {
             to {
               opacity: 1;
               transform: translateX(0);
+            }
+          }
+          
+          @keyframes fadeIn {
+            from {
+              opacity: 0;
+            }
+            to {
+              opacity: 1;
             }
           }
           
