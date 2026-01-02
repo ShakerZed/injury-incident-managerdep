@@ -941,17 +941,25 @@ const InjuryTimeline = () => {
 
   // Calculate injury date from first event
   const injuryDate = React.useMemo(() => {
-    // Parse "Dec 28, 12:00 PM" format from first event
     const firstEvent = timelineData[0];
     if (!firstEvent) return new Date();
     
-    // Try to parse the date string
     const dateStr = firstEvent.date;
-    const currentYear = new Date().getFullYear();
-    const parsed = new Date(`${dateStr} ${currentYear}`);
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    
+    // Try parsing with current year first
+    let parsed = new Date(`${dateStr} ${currentYear}`);
     
     // If invalid, return current date
     if (isNaN(parsed.getTime())) return new Date();
+    
+    // If the parsed date is in the future, it must be from last year
+    // (e.g., "Dec 28" parsed in January means Dec 28 of previous year)
+    if (parsed > now) {
+      parsed = new Date(`${dateStr} ${currentYear - 1}`);
+    }
+    
     return parsed;
   }, [timelineData]);
 
