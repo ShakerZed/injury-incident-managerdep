@@ -1,6 +1,203 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 
+// Animated counter component for "Event #X logged" toast
+const EventLoggedToast = ({ eventNumber, onComplete }) => {
+  const [visible, setVisible] = useState(true);
+  const [count, setCount] = useState(0);
+  
+  useEffect(() => {
+    // Animate count up
+    const duration = 600;
+    const start = performance.now();
+    const animate = (now) => {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / duration, 1);
+      // Ease out cubic
+      const eased = 1 - Math.pow(1 - progress, 3);
+      setCount(Math.floor(eased * eventNumber));
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+    requestAnimationFrame(animate);
+    
+    // Auto-dismiss after 3 seconds
+    const timer = setTimeout(() => {
+      setVisible(false);
+      setTimeout(onComplete, 300);
+    }, 3000);
+    
+    return () => clearTimeout(timer);
+  }, [eventNumber, onComplete]);
+  
+  return (
+    <div style={{
+      position: 'fixed',
+      top: '20px',
+      left: '50%',
+      transform: `translateX(-50%) translateY(${visible ? '0' : '-100px'})`,
+      background: 'linear-gradient(135deg, rgba(255, 51, 255, 0.95), rgba(136, 68, 255, 0.95))',
+      padding: '12px 24px',
+      borderRadius: '30px',
+      boxShadow: '0 8px 32px rgba(255, 51, 255, 0.5)',
+      zIndex: 2000,
+      opacity: visible ? 1 : 0,
+      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      border: '1px solid rgba(255, 255, 255, 0.2)',
+      backdropFilter: 'blur(10px)',
+    }}>
+      <span style={{ 
+        color: 'white', 
+        fontWeight: '600', 
+        fontSize: '16px',
+        textShadow: '0 2px 4px rgba(0,0,0,0.3)',
+        letterSpacing: '0.5px',
+      }}>
+        ✨ Event #{count} logged
+      </span>
+    </div>
+  );
+};
+
+// Live time since injury counter component
+const TimeSinceInjury = ({ injuryDate }) => {
+  const [elapsed, setElapsed] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  
+  useEffect(() => {
+    const updateElapsed = () => {
+      const now = new Date();
+      const diff = now - injuryDate;
+      
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      
+      setElapsed({ days, hours, minutes, seconds });
+    };
+    
+    updateElapsed();
+    const interval = setInterval(updateElapsed, 1000);
+    return () => clearInterval(interval);
+  }, [injuryDate]);
+  
+  return (
+    <div style={{
+      display: 'flex',
+      gap: '8px',
+      justifyContent: 'center',
+    }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ 
+          fontSize: '20px', 
+          fontWeight: '700', 
+          color: '#ff33ff',
+          fontVariantNumeric: 'tabular-nums',
+        }}>{elapsed.days}</div>
+        <div style={{ fontSize: '9px', color: '#888', textTransform: 'uppercase', letterSpacing: '1px' }}>days</div>
+      </div>
+      <span style={{ color: '#444', fontSize: '20px', fontWeight: '300' }}>:</span>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ 
+          fontSize: '20px', 
+          fontWeight: '700', 
+          color: '#ff33ff',
+          fontVariantNumeric: 'tabular-nums',
+        }}>{String(elapsed.hours).padStart(2, '0')}</div>
+        <div style={{ fontSize: '9px', color: '#888', textTransform: 'uppercase', letterSpacing: '1px' }}>hrs</div>
+      </div>
+      <span style={{ color: '#444', fontSize: '20px', fontWeight: '300' }}>:</span>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ 
+          fontSize: '20px', 
+          fontWeight: '700', 
+          color: '#ff33ff',
+          fontVariantNumeric: 'tabular-nums',
+        }}>{String(elapsed.minutes).padStart(2, '0')}</div>
+        <div style={{ fontSize: '9px', color: '#888', textTransform: 'uppercase', letterSpacing: '1px' }}>min</div>
+      </div>
+      <span style={{ color: '#444', fontSize: '20px', fontWeight: '300' }}>:</span>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ 
+          fontSize: '20px', 
+          fontWeight: '700', 
+          color: '#aa66ff',
+          fontVariantNumeric: 'tabular-nums',
+          opacity: 0.8,
+        }}>{String(elapsed.seconds).padStart(2, '0')}</div>
+        <div style={{ fontSize: '9px', color: '#888', textTransform: 'uppercase', letterSpacing: '1px' }}>sec</div>
+      </div>
+    </div>
+  );
+};
+
+// Pain trend indicator component
+const PainTrendIndicator = ({ timelineData }) => {
+  if (!timelineData || timelineData.length < 2) return null;
+  
+  const peakPain = Math.max(...timelineData.map(e => e.pain));
+  const currentPain = timelineData[timelineData.length - 1]?.pain || 0;
+  const painDrop = peakPain - currentPain;
+  const isImproving = painDrop > 0;
+  const isWorsening = painDrop < 0;
+  
+  // Calculate trend over last 3 events
+  const recentEvents = timelineData.slice(-3);
+  let trend = 'stable';
+  if (recentEvents.length >= 2) {
+    const recentChange = recentEvents[0].pain - recentEvents[recentEvents.length - 1].pain;
+    if (recentChange > 0) trend = 'improving';
+    else if (recentChange < 0) trend = 'worsening';
+  }
+  
+  const trendColors = {
+    improving: '#33ff99',
+    stable: '#ffaa33',
+    worsening: '#ff3333',
+  };
+  
+  const trendArrows = {
+    improving: '↓',
+    stable: '→',
+    worsening: '↑',
+  };
+  
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      padding: '8px 12px',
+      background: 'rgba(0, 0, 0, 0.3)',
+      borderRadius: '8px',
+      border: `1px solid ${trendColors[trend]}40`,
+    }}>
+      <span style={{
+        fontSize: '24px',
+        color: trendColors[trend],
+        fontWeight: 'bold',
+        lineHeight: 1,
+        textShadow: `0 0 10px ${trendColors[trend]}60`,
+      }}>
+        {trendArrows[trend]}
+      </span>
+      <div>
+        <div style={{ 
+          fontSize: '14px', 
+          fontWeight: '600', 
+          color: trendColors[trend],
+        }}>
+          {painDrop > 0 ? `${painDrop} pts from peak` : painDrop < 0 ? `${Math.abs(painDrop)} pts above baseline` : 'Stable'}
+        </div>
+        <div style={{ fontSize: '10px', color: '#888' }}>
+          Peak: {peakPain}/10 → Now: {currentPain}/10
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Form component for adding new recovery updates
 const AddUpdateForm = ({ onClose, onSubmit, lastEvent }) => {
   const [formData, setFormData] = useState({
@@ -79,6 +276,8 @@ const AddUpdateForm = ({ onClose, onSubmit, lastEvent }) => {
         maxWidth: '500px',
         width: '90%',
         border: '1px solid rgba(255, 255, 255, 0.2)',
+        maxHeight: '90vh',
+        overflowY: 'auto',
       }}>
         <h2 style={{ margin: '0 0 10px 0', color: '#ff33ff', fontSize: '24px' }}>
           Add Recovery Update
@@ -104,6 +303,7 @@ const AddUpdateForm = ({ onClose, onSubmit, lastEvent }) => {
               borderRadius: '5px',
               color: 'white',
               fontSize: '14px',
+              boxSizing: 'border-box',
             }}
           />
         </div>
@@ -127,6 +327,7 @@ const AddUpdateForm = ({ onClose, onSubmit, lastEvent }) => {
               borderRadius: '5px',
               color: 'white',
               fontSize: '14px',
+              boxSizing: 'border-box',
             }}
           />
         </div>
@@ -146,6 +347,7 @@ const AddUpdateForm = ({ onClose, onSubmit, lastEvent }) => {
               borderRadius: '5px',
               color: 'white',
               fontSize: '14px',
+              boxSizing: 'border-box',
             }}
           >
             <option value="assessment">Assessment</option>
@@ -195,6 +397,7 @@ const AddUpdateForm = ({ onClose, onSubmit, lastEvent }) => {
               borderRadius: '5px',
               color: 'white',
               fontSize: '14px',
+              boxSizing: 'border-box',
             }}
           />
         </div>
@@ -218,6 +421,7 @@ const AddUpdateForm = ({ onClose, onSubmit, lastEvent }) => {
               color: 'white',
               fontSize: '14px',
               resize: 'vertical',
+              boxSizing: 'border-box',
             }}
           />
         </div>
@@ -241,29 +445,60 @@ const AddUpdateForm = ({ onClose, onSubmit, lastEvent }) => {
               color: 'white',
               fontSize: '14px',
               resize: 'vertical',
+              boxSizing: 'border-box',
             }}
           />
         </div>
 
         {/* Milestone Checkbox */}
-        <div style={{ marginBottom: '15px', padding: '10px', background: 'rgba(255, 221, 85, 0.1)', borderRadius: '5px' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
             <input
               type="checkbox"
               checked={formData.isMilestone}
               onChange={(e) => setFormData({ ...formData, isMilestone: e.target.checked })}
-              style={{ cursor: 'pointer' }}
+              style={{ marginRight: '10px' }}
             />
-            <span style={{ fontSize: '13px', color: '#ffdd55', fontWeight: 'bold' }}>
-              🏆 Mark as Milestone Achievement
-            </span>
+            <span style={{ color: '#ffdd55', fontSize: '14px' }}>🏆 Mark as Milestone Achievement</span>
           </label>
         </div>
 
-        {/* Milestone Fields (conditional) */}
+        {/* Milestone Options (shown when milestone checked) */}
         {formData.isMilestone && (
-          <div style={{ marginBottom: '20px', padding: '12px', background: 'rgba(255, 221, 85, 0.05)', borderRadius: '5px', border: '1px solid rgba(255, 221, 85, 0.3)' }}>
-            <div style={{ marginBottom: '12px' }}>
+          <div style={{
+            padding: '15px',
+            background: 'rgba(255, 221, 85, 0.1)',
+            borderRadius: '8px',
+            marginBottom: '15px',
+            border: '1px solid rgba(255, 221, 85, 0.3)',
+          }}>
+            <div style={{ marginBottom: '10px' }}>
+              <label style={{ display: 'block', marginBottom: '5px', color: '#ffdd55', fontSize: '12px' }}>
+                Milestone Tier (1-6)
+              </label>
+              <select
+                value={formData.milestoneTier}
+                onChange={(e) => setFormData({ ...formData, milestoneTier: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(255, 221, 85, 0.3)',
+                  borderRadius: '5px',
+                  color: 'white',
+                  fontSize: '14px',
+                  boxSizing: 'border-box',
+                }}
+              >
+                <option value="1">Tier 1 - Stability</option>
+                <option value="2">Tier 2 - ROM</option>
+                <option value="3">Tier 3 - Strength</option>
+                <option value="4">Tier 4 - Endurance</option>
+                <option value="5">Tier 5 - Sport Specific</option>
+                <option value="6">Tier 6 - Contact</option>
+              </select>
+            </div>
+            <div style={{ marginBottom: '10px' }}>
               <label style={{ display: 'block', marginBottom: '5px', color: '#ffdd55', fontSize: '12px' }}>
                 Milestone Type
               </label>
@@ -274,59 +509,40 @@ const AddUpdateForm = ({ onClose, onSubmit, lastEvent }) => {
                   width: '100%',
                   padding: '8px',
                   background: 'rgba(255, 255, 255, 0.1)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  border: '1px solid rgba(255, 221, 85, 0.3)',
                   borderRadius: '5px',
                   color: 'white',
                   fontSize: '14px',
+                  boxSizing: 'border-box',
                 }}
               >
-                <option value="stability">🛡️ Stability (pain control)</option>
-                <option value="mobility">🦵 Mobility (ROM restored)</option>
-                <option value="brace">🧱 Bracing & Control</option>
-                <option value="mobility-brace">💪 ROM + Core Control</option>
-                <option value="impact">💥 Return to Impact</option>
-                <option value="sport-skill">🤼 Sport-Specific Skills</option>
-                <option value="contact">⚡ Return to Contact</option>
+                <option value="stability">🛡️ Stability</option>
+                <option value="mobility">🦵 Mobility</option>
+                <option value="brace">🧱 Bracing</option>
+                <option value="mobility-brace">💪 Mobility + Brace</option>
+                <option value="impact">💥 Impact Tolerance</option>
+                <option value="sport-skill">🤼 Sport Skill</option>
+                <option value="contact">⚡ Contact</option>
               </select>
             </div>
-            
-            <div style={{ marginBottom: '12px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', color: '#ffdd55', fontSize: '12px' }}>
-                Milestone Tier (1-6): {formData.milestoneTier}
-              </label>
-              <input
-                type="range"
-                min="1"
-                max="6"
-                value={formData.milestoneTier}
-                onChange={(e) => setFormData({ ...formData, milestoneTier: e.target.value })}
-                style={{ width: '100%' }}
-              />
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#888', marginTop: '4px' }}>
-                <span>Minor</span>
-                <span>Medium</span>
-                <span>Major</span>
-                <span>Legendary</span>
-              </div>
-            </div>
-            
             <div>
               <label style={{ display: 'block', marginBottom: '5px', color: '#ffdd55', fontSize: '12px' }}>
-                Achievement Label (optional)
+                Milestone Label (optional)
               </label>
               <input
                 type="text"
                 value={formData.milestoneLabel}
                 onChange={(e) => setFormData({ ...formData, milestoneLabel: e.target.value })}
-                placeholder="e.g., 'Pain-free toe touch' or leave blank to use title"
+                placeholder="e.g., First pain-free breakfall"
                 style={{
                   width: '100%',
                   padding: '8px',
                   background: 'rgba(255, 255, 255, 0.1)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  border: '1px solid rgba(255, 221, 85, 0.3)',
                   borderRadius: '5px',
                   color: 'white',
                   fontSize: '14px',
+                  boxSizing: 'border-box',
                 }}
               />
             </div>
@@ -335,36 +551,35 @@ const AddUpdateForm = ({ onClose, onSubmit, lastEvent }) => {
 
         <div style={{ display: 'flex', gap: '10px' }}>
           <button
-            type="button"
-            onClick={onClose}
-            style={{
-              flex: 1,
-              padding: '10px',
-              background: '#333',
-              border: 'none',
-              borderRadius: '5px',
-              color: 'white',
-              cursor: 'pointer',
-              fontSize: '14px',
-            }}
-          >
-            Cancel
-          </button>
-          <button
             type="submit"
             style={{
               flex: 1,
-              padding: '10px',
+              padding: '12px',
               background: '#ff33ff',
               border: 'none',
-              borderRadius: '5px',
+              borderRadius: '8px',
               color: 'white',
               cursor: 'pointer',
               fontSize: '14px',
               fontWeight: 'bold',
             }}
           >
-            Add Update
+            Add Event
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              padding: '12px 20px',
+              background: '#333',
+              border: '1px solid #555',
+              borderRadius: '8px',
+              color: 'white',
+              cursor: 'pointer',
+              fontSize: '14px',
+            }}
+          >
+            Cancel
           </button>
         </div>
       </form>
@@ -374,41 +589,35 @@ const AddUpdateForm = ({ onClose, onSubmit, lastEvent }) => {
 
 const InjuryTimeline = () => {
   const mountRef = useRef(null);
+  const sceneRef = useRef(null);
+  const cameraRef = useRef(null);
+  const rendererRef = useRef(null);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  
-  // Panel visibility - hidden by default on mobile
-  const [isPanelVisible, setIsPanelVisible] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth > 768; // Show on desktop, hide on mobile/tablet
-    }
-    return true;
-  });
-  
-  // Use refs for animation state to avoid rebuilding scene
-  const isRotatingRef = useRef(true);
+  const [isPanelVisible, setIsPanelVisible] = useState(true);
+  const [showEventToast, setShowEventToast] = useState(false);
+  const [toastEventNumber, setToastEventNumber] = useState(0);
   const selectedIndexRef = useRef(null);
   const hoveredIndexRef = useRef(null);
-  
-  const sceneRef = useRef(null);
-  const cameraRef = useRef(null);
-  const rendererRef = useRef(null);
+  const isRotatingRef = useRef(true);
   const eventSpheresRef = useRef([]);
   const spherePositionsRef = useRef([]);
   const milestoneBurstsRef = useRef([]);
+  const particleSystemRef = useRef(null);
+  const orbitalTrailsRef = useRef([]);
   const targetCameraPosition = useRef(new THREE.Vector3(0, 5, 15));
   const targetLookAt = useRef(new THREE.Vector3(0, 0, 0));
   const currentLookAt = useRef(new THREE.Vector3(0, 0, 0));
   
   // Camera orbit controls
   const isDraggingRef = useRef(false);
-  const cameraAngleRef = useRef(0); // Horizontal rotation angle
-  const cameraElevationRef = useRef(0.3); // Vertical angle (radians)
-  const cameraDistanceRef = useRef(15); // Distance from center
+  const cameraAngleRef = useRef(0);
+  const cameraElevationRef = useRef(0.3);
+  const cameraDistanceRef = useRef(15);
   const lastMousePosRef = useRef({ x: 0, y: 0 });
-  const autoRotateSpeedRef = useRef(0.3); // Speed of auto-rotation
+  const autoRotateSpeedRef = useRef(0.3);
 
   // Helper: create radial texture for VFX
   const makeRadialTexture = () => {
@@ -430,6 +639,73 @@ const InjuryTimeline = () => {
     return tex;
   };
 
+  // Create particle dust system (nebula effect)
+  const createParticleDust = (scene) => {
+    const particleCount = 500;
+    const positions = new Float32Array(particleCount * 3);
+    const colors = new Float32Array(particleCount * 3);
+    const sizes = new Float32Array(particleCount);
+    const velocities = new Float32Array(particleCount * 3);
+    
+    for (let i = 0; i < particleCount; i++) {
+      // Distribute particles in a large sphere around the scene
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const radius = 5 + Math.random() * 20;
+      
+      positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+      positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta) - 2;
+      positions[i * 3 + 2] = radius * Math.cos(phi);
+      
+      // Subtle color variation (purple/blue/pink nebula)
+      const colorChoice = Math.random();
+      if (colorChoice < 0.33) {
+        // Purple
+        colors[i * 3] = 0.6 + Math.random() * 0.2;
+        colors[i * 3 + 1] = 0.2 + Math.random() * 0.2;
+        colors[i * 3 + 2] = 0.8 + Math.random() * 0.2;
+      } else if (colorChoice < 0.66) {
+        // Blue
+        colors[i * 3] = 0.2 + Math.random() * 0.2;
+        colors[i * 3 + 1] = 0.4 + Math.random() * 0.2;
+        colors[i * 3 + 2] = 0.9 + Math.random() * 0.1;
+      } else {
+        // Pink/magenta
+        colors[i * 3] = 0.9 + Math.random() * 0.1;
+        colors[i * 3 + 1] = 0.2 + Math.random() * 0.2;
+        colors[i * 3 + 2] = 0.6 + Math.random() * 0.2;
+      }
+      
+      sizes[i] = 0.02 + Math.random() * 0.04;
+      
+      // Slow drift velocities
+      velocities[i * 3] = (Math.random() - 0.5) * 0.002;
+      velocities[i * 3 + 1] = (Math.random() - 0.5) * 0.001;
+      velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.002;
+    }
+    
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+    
+    const material = new THREE.PointsMaterial({
+      size: 0.05,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.4,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      sizeAttenuation: true,
+    });
+    
+    const particles = new THREE.Points(geometry, material);
+    particles.userData.velocities = velocities;
+    scene.add(particles);
+    
+    return particles;
+  };
+
   // Trigger milestone burst VFX
   const triggerMilestoneBurst = (scene, position, tier = 1) => {
     const group = new THREE.Group();
@@ -437,12 +713,10 @@ const InjuryTimeline = () => {
 
     const disposables = { geometries: [], materials: [], textures: [] };
 
-    // Color and intensity based on tier
     const tierColors = [0xaaaaaa, 0xffffaa, 0xffffaa, 0xffdd55, 0xff88ff, 0xff00ff];
     const color = tierColors[Math.min(tier, tierColors.length - 1)];
     const intensity = 0.5 + (tier * 0.15);
     
-    // Beam: vertical light column
     const tex = makeRadialTexture();
     disposables.textures.push(tex);
 
@@ -461,7 +735,6 @@ const InjuryTimeline = () => {
     beam.scale.set(1.5 * intensity, 8.0 * intensity, 1);
     group.add(beam);
 
-    // Ring pulse (tier 2+)
     if (tier >= 2) {
       const ringGeo = new THREE.TorusGeometry(0.6, 0.03, 16, 96);
       const ringMat = new THREE.MeshBasicMaterial({
@@ -480,7 +753,6 @@ const InjuryTimeline = () => {
       group.add(ring);
     }
 
-    // Spark burst
     const sparkCount = 40 + (tier * 20);
     const positions = new Float32Array(sparkCount * 3);
     const velocities = new Float32Array(sparkCount * 3);
@@ -526,7 +798,7 @@ const InjuryTimeline = () => {
     });
   };
 
-  // Timeline data - moved outside useEffect for navigation access
+  // Timeline data
   const initialTimelineData = [
     {
       id: '0-INJURY_EVENT',
@@ -667,6 +939,22 @@ const InjuryTimeline = () => {
     return saved ? JSON.parse(saved) : initialTimelineData;
   });
 
+  // Calculate injury date from first event
+  const injuryDate = React.useMemo(() => {
+    // Parse "Dec 28, 12:00 PM" format from first event
+    const firstEvent = timelineData[0];
+    if (!firstEvent) return new Date();
+    
+    // Try to parse the date string
+    const dateStr = firstEvent.date;
+    const currentYear = new Date().getFullYear();
+    const parsed = new Date(`${dateStr} ${currentYear}`);
+    
+    // If invalid, return current date
+    if (isNaN(parsed.getTime())) return new Date();
+    return parsed;
+  }, [timelineData]);
+
   // Save to localStorage whenever timeline data changes
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -674,7 +962,7 @@ const InjuryTimeline = () => {
     }
   }, [timelineData]);
 
-  // Restore selection after timeline data changes (by stable ID)
+  // Restore selection after timeline data changes
   useEffect(() => {
     if (selectedEventId) {
       const newIndex = timelineData.findIndex(event => event.id === selectedEventId);
@@ -683,7 +971,6 @@ const InjuryTimeline = () => {
         setSelectedEvent(timelineData[newIndex]);
         selectedIndexRef.current = newIndex;
       } else {
-        // Event was deleted, clear selection
         setSelectedEventId(null);
         setSelectedEvent(null);
         setSelectedIndex(null);
@@ -692,26 +979,21 @@ const InjuryTimeline = () => {
       }
     }
   }, [timelineData, selectedEventId]);
+
   useEffect(() => {
     if (!mountRef.current) return;
 
-    // Reset refs to prevent duplicates in React 18 Strict Mode
     eventSpheresRef.current = [];
     spherePositionsRef.current = [];
+    orbitalTrailsRef.current = [];
 
-    // Scene setup - ONLY RUNS ONCE
+    // Scene setup
     const scene = new THREE.Scene();
-    // Enhanced background with subtle purple gradient
     scene.background = new THREE.Color(0x0a0a14);
     scene.fog = new THREE.Fog(0x0a0a14, 15, 60);
     sceneRef.current = scene;
 
-    const camera = new THREE.PerspectiveCamera(
-      75,
-      1, // Will be set properly below
-      0.1,
-      1000
-    );
+    const camera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
     camera.position.set(0, 5, 15);
     camera.lookAt(0, 0, 0);
     cameraRef.current = camera;
@@ -721,7 +1003,6 @@ const InjuryTimeline = () => {
     renderer.setPixelRatio(Math.min(dpr, 2));
     rendererRef.current = renderer;
     
-    // Set initial size from container rect (not window)
     const { width, height } = mountRef.current.getBoundingClientRect();
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
@@ -729,21 +1010,18 @@ const InjuryTimeline = () => {
     
     mountRef.current.appendChild(renderer.domElement);
 
-    // Enhanced lighting for better visual depth
-    const ambientLight = new THREE.AmbientLight(0x6666ff, 0.3); // Subtle purple ambient
+    // Lighting
+    const ambientLight = new THREE.AmbientLight(0x6666ff, 0.3);
     scene.add(ambientLight);
 
-    // Main key light
     const keyLight = new THREE.DirectionalLight(0xffffff, 0.8);
     keyLight.position.set(10, 15, 10);
     scene.add(keyLight);
 
-    // Rim light for depth
     const rimLight = new THREE.DirectionalLight(0xff33ff, 0.4);
     rimLight.position.set(-10, 5, -10);
     scene.add(rimLight);
 
-    // Accent point lights for sparkle
     const accentLight1 = new THREE.PointLight(0x4488ff, 1.5, 50);
     accentLight1.position.set(5, 8, 5);
     scene.add(accentLight1);
@@ -752,20 +1030,19 @@ const InjuryTimeline = () => {
     accentLight2.position.set(-5, -3, -8);
     scene.add(accentLight2);
     
-    // Enhanced renderer settings
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.2;
 
-    // Create timeline path
-    const eventSpheres = [];
+    // Create particle dust (nebula effect)
+    const particles = createParticleDust(scene);
+    particleSystemRef.current = particles;
 
-    // Reuse geometry and cache materials for performance
+    // Create timeline elements
+    const eventSpheres = [];
     const sharedSphereGeometry = new THREE.SphereGeometry(0.3, 32, 32);
     const sharedGlowGeometry = new THREE.SphereGeometry(0.35, 32, 32);
-    
-    // Milestone geometries (different shapes for visual distinction)
     const milestoneGeometry = new THREE.OctahedronGeometry(0.35, 0);
     const milestoneGlowGeometry = new THREE.OctahedronGeometry(0.42, 0);
     
@@ -798,6 +1075,8 @@ const InjuryTimeline = () => {
       return materialCache[glowKey];
     };
 
+    // Calculate positions and create objects
+    const positions = [];
     timelineData.forEach((event, index) => {
       const denom = Math.max(1, timelineData.length - 1);
       const t = index / denom;
@@ -806,34 +1085,23 @@ const InjuryTimeline = () => {
       const x = Math.cos(angle) * radius;
       const z = Math.sin(angle) * radius;
       const y = (10 - event.pain) * 0.5 - 2;
+      
+      positions.push({ x, y, z, angle, radius });
 
-      // Color based on type (milestone events get golden tint)
       let color;
       if (event.isMilestone) {
-        color = 0xffdd55; // Golden for milestones
+        color = 0xffdd55;
       } else {
         switch (event.type) {
-          case 'injury':
-            color = 0xff3333;
-            break;
-          case 'intervention':
-            color = 0xffaa33;
-            break;
-          case 'rest':
-            color = 0x6666ff;
-            break;
-          case 'assessment':
-            color = 0x33ff99;
-            break;
-          case 'pt':
-            color = 0xff33ff;
-            break;
-          default:
-            color = 0xffffff;
+          case 'injury': color = 0xff3333; break;
+          case 'intervention': color = 0xffaa33; break;
+          case 'rest': color = 0x6666ff; break;
+          case 'assessment': color = 0x33ff99; break;
+          case 'pt': color = 0xff33ff; break;
+          default: color = 0xffffff;
         }
       }
 
-      // Create sphere for event using appropriate geometry and material
       const geometry = event.isMilestone ? milestoneGeometry : sharedSphereGeometry;
       const glowGeometry = event.isMilestone ? milestoneGlowGeometry : sharedGlowGeometry;
       const material = getMaterial(color, event.isMilestone);
@@ -843,20 +1111,15 @@ const InjuryTimeline = () => {
       sphere.userData = { event, index, baseColor: color };
       scene.add(sphere);
       eventSpheres.push(sphere);
-      
-      // Store in ref for persistent access
       eventSpheresRef.current.push(sphere);
-      
-      // Store position for camera targeting
       spherePositionsRef.current.push(new THREE.Vector3(x, y, z));
 
-      // Create glow effect using cached glow material
       const glowMaterial = getGlowMaterial(color, event.isMilestone);
       const glow = new THREE.Mesh(glowGeometry, glowMaterial);
       glow.position.copy(sphere.position);
       scene.add(glow);
       
-      // Add rotating halo ring for milestones
+      // Milestone halo
       if (event.isMilestone) {
         const haloGeo = new THREE.TorusGeometry(0.5, 0.02, 16, 64);
         const haloMat = new THREE.MeshBasicMaterial({
@@ -872,28 +1135,66 @@ const InjuryTimeline = () => {
         scene.add(halo);
       }
 
-      // Create connection line to next point (reuse denom for consistency)
-      if (index < timelineData.length - 1) {
-        const nextT = (index + 1) / denom;
-        const nextAngle = nextT * Math.PI * 2;
-        const nextX = Math.cos(nextAngle) * radius;
-        const nextZ = Math.sin(nextAngle) * radius;
-        const nextY = (10 - timelineData[index + 1].pain) * 0.5 - 2;
-
-        const lineGeometry = new THREE.BufferGeometry().setFromPoints([
-          new THREE.Vector3(x, y, z),
-          new THREE.Vector3(nextX, nextY, nextZ),
-        ]);
-        const lineMaterial = new THREE.LineBasicMaterial({
-          color: 0x4488ff,
-          linewidth: 2, // Note: linewidth is ignored on most platforms; consider Line2 for thick lines
-        });
-        const line = new THREE.Line(lineGeometry, lineMaterial);
-        scene.add(line);
+      // Create orbital trail for each event
+      const trailLength = 60;
+      const trailPositions = new Float32Array(trailLength * 3);
+      const trailOpacities = new Float32Array(trailLength);
+      
+      for (let i = 0; i < trailLength; i++) {
+        const trailAngle = angle - (i * 0.02);
+        trailPositions[i * 3] = Math.cos(trailAngle) * radius;
+        trailPositions[i * 3 + 1] = y;
+        trailPositions[i * 3 + 2] = Math.sin(trailAngle) * radius;
+        trailOpacities[i] = 1 - (i / trailLength);
       }
+      
+      const trailGeometry = new THREE.BufferGeometry();
+      trailGeometry.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+      
+      const trailMaterial = new THREE.LineBasicMaterial({
+        color: color,
+        transparent: true,
+        opacity: 0.15,
+        blending: THREE.AdditiveBlending,
+      });
+      
+      const trail = new THREE.Line(trailGeometry, trailMaterial);
+      trail.userData = { eventIndex: index, baseAngle: angle, radius, y, color };
+      scene.add(trail);
+      orbitalTrailsRef.current.push(trail);
     });
 
-    // Create central axis
+    // Enhanced constellation lines (connecting adjacent events)
+    for (let i = 0; i < positions.length - 1; i++) {
+      const curr = positions[i];
+      const next = positions[i + 1];
+      
+      // Create gradient line effect with multiple segments
+      const linePoints = [];
+      const segments = 20;
+      
+      for (let j = 0; j <= segments; j++) {
+        const t = j / segments;
+        linePoints.push(new THREE.Vector3(
+          curr.x + (next.x - curr.x) * t,
+          curr.y + (next.y - curr.y) * t,
+          curr.z + (next.z - curr.z) * t
+        ));
+      }
+      
+      const lineGeometry = new THREE.BufferGeometry().setFromPoints(linePoints);
+      const lineMaterial = new THREE.LineBasicMaterial({
+        color: 0x4488ff,
+        transparent: true,
+        opacity: 0.3,
+        blending: THREE.AdditiveBlending,
+      });
+      const line = new THREE.Line(lineGeometry, lineMaterial);
+      line.userData = { type: 'constellation' };
+      scene.add(line);
+    }
+
+    // Central axis
     const axisGeometry = new THREE.CylinderGeometry(0.05, 0.05, 10, 32);
     const axisMaterial = new THREE.MeshPhongMaterial({
       color: 0x333333,
@@ -903,7 +1204,7 @@ const InjuryTimeline = () => {
     axis.position.y = 0;
     scene.add(axis);
     
-    // Add "START" marker at first event
+    // Text sprite helper
     const createTextSprite = (text, color) => {
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
@@ -934,7 +1235,7 @@ const InjuryTimeline = () => {
       scene.add(endMarker);
     }
 
-    // Pain level indicator rings with labels
+    // Pain level rings
     for (let i = 0; i <= 10; i++) {
       const ringGeometry = new THREE.TorusGeometry(8, 0.02, 16, 100);
       const ringMaterial = new THREE.MeshBasicMaterial({
@@ -947,7 +1248,6 @@ const InjuryTimeline = () => {
       ring.position.y = (10 - i) * 0.5 - 2;
       scene.add(ring);
       
-      // Add text labels at key pain levels (0, 5, 10)
       if (i === 0 || i === 5 || i === 10) {
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
@@ -968,7 +1268,7 @@ const InjuryTimeline = () => {
       }
     }
 
-    // Mouse interaction - scoped to canvas with proper rect mapping
+    // Mouse interaction
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
@@ -988,7 +1288,17 @@ const InjuryTimeline = () => {
         selectedIndexRef.current = clicked.userData.index;
         isRotatingRef.current = false;
         
-        // Trigger milestone burst VFX if this is a milestone
+        // Calculate camera position to zoom in front of selected event
+        const spherePos = clicked.position.clone();
+        const direction = spherePos.clone().normalize();
+        // Position camera closer to the sphere, offset outward from center
+        targetCameraPosition.current.set(
+          spherePos.x + direction.x * 4,
+          spherePos.y + 2,
+          spherePos.z + direction.z * 4
+        );
+        targetLookAt.current.copy(spherePos);
+        
         if (clicked.userData.event.isMilestone) {
           const tier = clicked.userData.event.milestone?.tier || 1;
           triggerMilestoneBurst(scene, clicked.position, tier);
@@ -1022,9 +1332,8 @@ const InjuryTimeline = () => {
     renderer.domElement.addEventListener('pointerdown', onCanvasPointer);
     renderer.domElement.addEventListener('pointermove', onCanvasMove);
 
-    // Camera orbit controls - drag to rotate
+    // Orbit controls
     const onOrbitStart = (e) => {
-      // Only start drag if not clicking on a sphere (event sphere clicks handled by onCanvasPointer)
       const rect = renderer.domElement.getBoundingClientRect();
       const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
       const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -1033,7 +1342,6 @@ const InjuryTimeline = () => {
       raycaster.setFromCamera({ x, y }, camera);
       const intersects = raycaster.intersectObjects(eventSpheresRef.current);
       
-      // Only start orbit if NOT clicking on a sphere
       if (intersects.length === 0) {
         isDraggingRef.current = true;
         lastMousePosRef.current = { x: e.clientX, y: e.clientY };
@@ -1047,10 +1355,7 @@ const InjuryTimeline = () => {
       const deltaX = e.clientX - lastMousePosRef.current.x;
       const deltaY = e.clientY - lastMousePosRef.current.y;
       
-      // Update camera angle (horizontal rotation)
-      cameraAngleRef.current -= deltaX * 0.005; // Sensitivity
-      
-      // Update camera elevation (vertical rotation) with limits
+      cameraAngleRef.current -= deltaX * 0.005;
       cameraElevationRef.current += deltaY * 0.005;
       cameraElevationRef.current = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, cameraElevationRef.current));
       
@@ -1062,14 +1367,12 @@ const InjuryTimeline = () => {
       renderer.domElement.style.cursor = 'grab';
     };
     
-    // Mouse events
     renderer.domElement.addEventListener('mousedown', onOrbitStart);
     renderer.domElement.addEventListener('mousemove', onOrbitMove);
     renderer.domElement.addEventListener('mouseup', onOrbitEnd);
-    // Also listen on window for mouseup in case user drags outside canvas
     window.addEventListener('mouseup', onOrbitEnd);
     
-    // Touch events for mobile
+    // Touch events
     const onTouchStart = (e) => {
       if (e.touches.length === 1) {
         const touch = e.touches[0];
@@ -1090,9 +1393,6 @@ const InjuryTimeline = () => {
     
     const onTouchMove = (e) => {
       if (!isDraggingRef.current || e.touches.length !== 1) return;
-      
-      // Only prevent default if we're dragging (started on canvas)
-      // This allows UI panels to scroll normally
       e.preventDefault();
       
       const touch = e.touches[0];
@@ -1114,20 +1414,18 @@ const InjuryTimeline = () => {
     renderer.domElement.addEventListener('touchmove', onTouchMove, { passive: false });
     renderer.domElement.addEventListener('touchend', onTouchEnd);
 
-    // Animation
+    // Animation loop
     let time = 0;
     const animate = () => {
       requestAnimationFrame(animate);
       time += 0.01;
 
-      // Rotate camera around scene or smoothly move to target
+      // Camera movement
       if (isRotatingRef.current && !isDraggingRef.current) {
-        // Auto-rotate when not dragging
         cameraAngleRef.current = time * autoRotateSpeedRef.current;
       }
       
       if (isRotatingRef.current) {
-        // Calculate camera position using spherical coordinates
         const angle = cameraAngleRef.current;
         const elevation = cameraElevationRef.current;
         const distance = cameraDistanceRef.current;
@@ -1138,44 +1436,82 @@ const InjuryTimeline = () => {
         camera.lookAt(0, 0, 0);
         currentLookAt.current.set(0, 0, 0);
       } else {
-        // Smooth camera transition to target
         camera.position.lerp(targetCameraPosition.current, 0.1);
-        
-        // Fix: Actually lerp the lookAt target
         currentLookAt.current.lerp(targetLookAt.current, 0.1);
         camera.lookAt(currentLookAt.current);
       }
 
-      // Pulse and highlight event spheres
+      // Update particle dust (nebula drift)
+      if (particleSystemRef.current) {
+        const positions = particleSystemRef.current.geometry.getAttribute('position');
+        const velocities = particleSystemRef.current.userData.velocities;
+        
+        for (let i = 0; i < positions.count; i++) {
+          positions.array[i * 3] += velocities[i * 3];
+          positions.array[i * 3 + 1] += velocities[i * 3 + 1];
+          positions.array[i * 3 + 2] += velocities[i * 3 + 2];
+          
+          // Wrap around bounds
+          const dist = Math.sqrt(
+            positions.array[i * 3] ** 2 +
+            positions.array[i * 3 + 1] ** 2 +
+            positions.array[i * 3 + 2] ** 2
+          );
+          if (dist > 25) {
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            const r = 5 + Math.random() * 5;
+            positions.array[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+            positions.array[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta) - 2;
+            positions.array[i * 3 + 2] = r * Math.cos(phi);
+          }
+        }
+        positions.needsUpdate = true;
+        
+        // Subtle rotation
+        particleSystemRef.current.rotation.y += 0.0003;
+      }
+
+      // Update orbital trails
+      orbitalTrailsRef.current.forEach((trail) => {
+        const { baseAngle, radius, y } = trail.userData;
+        const positions = trail.geometry.getAttribute('position');
+        const trailLength = positions.count;
+        
+        for (let i = 0; i < trailLength; i++) {
+          const trailAngle = baseAngle + time * 0.1 - (i * 0.02);
+          positions.array[i * 3] = Math.cos(trailAngle) * radius;
+          positions.array[i * 3 + 1] = y;
+          positions.array[i * 3 + 2] = Math.sin(trailAngle) * radius;
+        }
+        positions.needsUpdate = true;
+      });
+
+      // Pulse event spheres
       eventSpheres.forEach((sphere, index) => {
         const isSelected = selectedIndexRef.current === index;
         const isHovered = hoveredIndexRef.current === index;
         const isMilestone = sphere.userData.event.isMilestone;
         
-        // Pulsing effect (milestones pulse slower and subtler)
         const pulseSpeed = isMilestone ? 1.5 : 2;
         const pulseAmount = isMilestone ? 0.05 : 0.1;
         const basePulse = Math.sin(time * pulseSpeed + index * 0.5) * pulseAmount;
         
         if (isSelected) {
-          // Selected: larger, brighter, no pulse
           const baseScale = isMilestone ? 1.3 : 1.3;
           sphere.scale.set(baseScale, baseScale, baseScale);
           sphere.material.emissiveIntensity = isMilestone ? 0.8 : 0.6;
         } else if (isHovered) {
-          // Hovered: slightly larger, brighter
           const baseScale = isMilestone ? 1.25 : 1.2;
           sphere.scale.set(baseScale, baseScale, baseScale);
           sphere.material.emissiveIntensity = isMilestone ? 0.7 : 0.5;
         } else {
-          // Default: pulse normally
           const baseScale = isMilestone ? 1.1 : 1.0;
           const scale = baseScale + basePulse;
           sphere.scale.set(scale, scale, scale);
           sphere.material.emissiveIntensity = isMilestone ? 0.5 : 0.3;
         }
         
-        // Dim non-selected spheres when something is selected (only change opacity)
         if (selectedIndexRef.current !== null && !isSelected) {
           sphere.material.opacity = 0.4;
         } else {
@@ -1190,13 +1526,19 @@ const InjuryTimeline = () => {
         }
       });
 
+      // Pulse constellation lines
+      scene.traverse((obj) => {
+        if (obj.userData.type === 'constellation') {
+          obj.material.opacity = 0.2 + Math.sin(time * 0.5) * 0.1;
+        }
+      });
+
       // Update milestone bursts
       const now = performance.now();
       milestoneBurstsRef.current = milestoneBurstsRef.current.filter((b) => {
         const t = (now - b.start) / b.duration;
 
         if (t >= 1) {
-          // Remove and dispose
           scene.remove(b.group);
           b.disposables.geometries.forEach((g) => g.dispose());
           b.disposables.materials.forEach((m) => m.dispose());
@@ -1204,23 +1546,19 @@ const InjuryTimeline = () => {
           return false;
         }
 
-        // Easing
         const easeOut = 1 - Math.pow(1 - t, 3);
 
-        // Beam: fade in fast, fade out later
         const beamFade = t < 0.2 ? t / 0.2 : 1 - (t - 0.2) / 0.8;
         b.beam.material.opacity = Math.max(0, beamFade) * 0.9;
         b.beam.scale.x = 1.2 + easeOut * 1.0;
         b.beam.scale.y = 7.0 + easeOut * 3.0;
 
-        // Ring: expand and fade (if exists)
         if (b.ring) {
           b.ring.material.opacity = (1 - t) * 0.8;
           const s = 1 + easeOut * 8;
           b.ring.scale.set(s, s, s);
         }
 
-        // Sparks: integrate velocity, fade
         b.sparks.material.opacity = (1 - t) * 0.9;
         const posAttr = b.sparks.geometry.getAttribute('position');
         const velAttr = b.sparks.geometry.getAttribute('velocity');
@@ -1239,7 +1577,7 @@ const InjuryTimeline = () => {
 
     animate();
 
-    // Handle window resize
+    // Resize handler
     const handleResize = () => {
       if (!mountRef.current) return;
       const { width, height } = mountRef.current.getBoundingClientRect();
@@ -1249,8 +1587,6 @@ const InjuryTimeline = () => {
     };
 
     window.addEventListener('resize', handleResize);
-
-    // Call once after mount to handle immediate layout shifts
     handleResize();
 
     // Cleanup
@@ -1259,7 +1595,6 @@ const InjuryTimeline = () => {
       renderer.domElement.removeEventListener('pointermove', onCanvasMove);
       window.removeEventListener('resize', handleResize);
       
-      // Remove orbit control listeners
       renderer.domElement.removeEventListener('mousedown', onOrbitStart);
       window.removeEventListener('mousemove', onOrbitMove);
       window.removeEventListener('mouseup', onOrbitEnd);
@@ -1267,25 +1602,21 @@ const InjuryTimeline = () => {
       renderer.domElement.removeEventListener('touchmove', onTouchMove);
       renderer.domElement.removeEventListener('touchend', onTouchEnd);
       
-      // Use Sets to track disposed resources and avoid double-disposal
       const disposedGeometries = new Set();
       const disposedMaterials = new Set();
       const disposedTextures = new Set();
       
       scene.traverse((obj) => {
-        // Dispose geometry once
         const geo = obj.geometry;
         if (geo && !disposedGeometries.has(geo)) {
           disposedGeometries.add(geo);
           geo.dispose();
         }
         
-        // Dispose material(s) and textures once
         const disposeMat = (mat) => {
           if (!mat || disposedMaterials.has(mat)) return;
           disposedMaterials.add(mat);
           
-          // Dispose texture if present
           if (mat.map && !disposedTextures.has(mat.map)) {
             disposedTextures.add(mat.map);
             mat.map.dispose();
@@ -1300,50 +1631,69 @@ const InjuryTimeline = () => {
           disposeMat(obj.material);
         }
       });
-      
+
       renderer.dispose();
-      if (mountRef.current && renderer.domElement) {
+      if (mountRef.current && renderer.domElement.parentNode === mountRef.current) {
         mountRef.current.removeChild(renderer.domElement);
       }
     };
-  }, [timelineData]); // Rebuild when timeline data changes
-
-  // Focus camera on selected event
-  useEffect(() => {
-    if (selectedIndex !== null && spherePositionsRef.current[selectedIndex] && cameraRef.current) {
-      const spherePos = spherePositionsRef.current[selectedIndex];
-      
-      // Calculate camera position: offset from sphere to get good viewing angle
-      const offset = new THREE.Vector3();
-      offset.copy(spherePos).normalize().multiplyScalar(6); // Distance from sphere
-      offset.y += 2; // Raise camera slightly
-      
-      const newCameraPos = new THREE.Vector3();
-      newCameraPos.addVectors(spherePos, offset);
-      
-      targetCameraPosition.current.copy(newCameraPos);
-      targetLookAt.current.copy(spherePos);
-      
-      // Update refs
-      selectedIndexRef.current = selectedIndex;
-      isRotatingRef.current = false;
-    } else if (selectedIndex === null) {
-      // Reset to orbit view
-      isRotatingRef.current = true;
-      selectedIndexRef.current = null;
-    }
-  }, [selectedIndex]);
+  }, [timelineData]);
 
   // Keyboard navigation
   useEffect(() => {
-    const handleKeyPress = (event) => {
-      if (!selectedEvent) return;
+    const handleKeyPress = (e) => {
+      if (showAddForm) return;
       
-      if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
-        goToPreviousEvent();
-      } else if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
-        goToNextEvent();
-      } else if (event.key === 'Escape') {
+      // Helper to update camera target
+      const updateCameraTarget = (index) => {
+        if (spherePositionsRef.current[index]) {
+          const spherePos = spherePositionsRef.current[index];
+          const direction = spherePos.clone().normalize();
+          targetCameraPosition.current.set(
+            spherePos.x + direction.x * 4,
+            spherePos.y + 2,
+            spherePos.z + direction.z * 4
+          );
+          targetLookAt.current.copy(spherePos);
+        }
+      };
+      
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (selectedIndex === null) {
+          setSelectedIndex(0);
+          setSelectedEvent(timelineData[0]);
+          setSelectedEventId(timelineData[0].id);
+          selectedIndexRef.current = 0;
+          isRotatingRef.current = false;
+          updateCameraTarget(0);
+        } else if (selectedIndex < timelineData.length - 1) {
+          const newIndex = selectedIndex + 1;
+          setSelectedIndex(newIndex);
+          setSelectedEvent(timelineData[newIndex]);
+          setSelectedEventId(timelineData[newIndex].id);
+          selectedIndexRef.current = newIndex;
+          updateCameraTarget(newIndex);
+        }
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (selectedIndex === null) {
+          const lastIndex = timelineData.length - 1;
+          setSelectedIndex(lastIndex);
+          setSelectedEvent(timelineData[lastIndex]);
+          setSelectedEventId(timelineData[lastIndex].id);
+          selectedIndexRef.current = lastIndex;
+          isRotatingRef.current = false;
+          updateCameraTarget(lastIndex);
+        } else if (selectedIndex > 0) {
+          const newIndex = selectedIndex - 1;
+          setSelectedIndex(newIndex);
+          setSelectedEvent(timelineData[newIndex]);
+          setSelectedEventId(timelineData[newIndex].id);
+          selectedIndexRef.current = newIndex;
+          updateCameraTarget(newIndex);
+        }
+      } else if (e.key === 'Escape') {
         setSelectedEvent(null);
         setSelectedIndex(null);
         setSelectedEventId(null);
@@ -1354,7 +1704,7 @@ const InjuryTimeline = () => {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [selectedEvent, selectedIndex]);
+  }, [selectedEvent, selectedIndex, showAddForm, timelineData]);
 
   // Navigation functions
   const goToPreviousEvent = () => {
@@ -1364,6 +1714,18 @@ const InjuryTimeline = () => {
       setSelectedEvent(timelineData[newIndex]);
       setSelectedEventId(timelineData[newIndex].id);
       selectedIndexRef.current = newIndex;
+      
+      // Update camera target to new event position
+      if (spherePositionsRef.current[newIndex]) {
+        const spherePos = spherePositionsRef.current[newIndex];
+        const direction = spherePos.clone().normalize();
+        targetCameraPosition.current.set(
+          spherePos.x + direction.x * 4,
+          spherePos.y + 2,
+          spherePos.z + direction.z * 4
+        );
+        targetLookAt.current.copy(spherePos);
+      }
     }
   };
 
@@ -1374,12 +1736,23 @@ const InjuryTimeline = () => {
       setSelectedEvent(timelineData[newIndex]);
       setSelectedEventId(timelineData[newIndex].id);
       selectedIndexRef.current = newIndex;
+      
+      // Update camera target to new event position
+      if (spherePositionsRef.current[newIndex]) {
+        const spherePos = spherePositionsRef.current[newIndex];
+        const direction = spherePos.clone().normalize();
+        targetCameraPosition.current.set(
+          spherePos.x + direction.x * 4,
+          spherePos.y + 2,
+          spherePos.z + direction.z * 4
+        );
+        targetLookAt.current.copy(spherePos);
+      }
     }
   };
 
-  // Timeline management functions
+  // Timeline management
   const addNewEvent = (newEvent) => {
-    // Generate stable ID from hours and title
     const safeTitle = newEvent.title.replace(/[^a-zA-Z0-9]/g, '_');
     const eventWithId = {
       ...newEvent,
@@ -1388,6 +1761,10 @@ const InjuryTimeline = () => {
     const updatedTimeline = [...timelineData, eventWithId].sort((a, b) => a.hours - b.hours);
     setTimelineData(updatedTimeline);
     setShowAddForm(false);
+    
+    // Show toast with event count animation
+    setToastEventNumber(updatedTimeline.length);
+    setShowEventToast(true);
   };
 
   const exportTimeline = () => {
@@ -1411,20 +1788,15 @@ const InjuryTimeline = () => {
         try {
           const imported = JSON.parse(e.target.result);
           
-          // Check if importing a single event or full timeline
           if (Array.isArray(imported)) {
-            // Full timeline array - ask user if they want to replace
             if (confirm(`Replace entire timeline with ${imported.length} events? This will erase your current data.`)) {
               setTimelineData(imported);
               alert('Timeline replaced successfully!');
             }
           } else if (imported && typeof imported === 'object' && imported.id) {
-            // Single event object - add to existing timeline
-            // Check for duplicate ID
             const existingIndex = timelineData.findIndex(e => e.id === imported.id);
             
             if (existingIndex !== -1) {
-              // Duplicate found - ask to replace
               if (confirm(`Event "${imported.title}" already exists. Replace it?`)) {
                 const updatedData = [...timelineData];
                 updatedData[existingIndex] = imported;
@@ -1432,12 +1804,13 @@ const InjuryTimeline = () => {
                 alert('Event updated successfully!');
               }
             } else {
-              // New event - add to timeline
               const updatedData = [...timelineData, imported];
-              // Sort by hours to maintain chronological order
               updatedData.sort((a, b) => a.hours - b.hours);
               setTimelineData(updatedData);
-              alert(`Event "${imported.title}" added successfully!`);
+              
+              // Show toast
+              setToastEventNumber(updatedData.length);
+              setShowEventToast(true);
             }
           } else {
             alert('Invalid format: Please import either a single event object or an array of events');
@@ -1449,7 +1822,6 @@ const InjuryTimeline = () => {
       };
       reader.readAsText(file);
     }
-    // Reset file input so same file can be imported again
     event.target.value = '';
   };
 
@@ -1492,7 +1864,15 @@ const InjuryTimeline = () => {
     <div style={{ width: '100vw', height: '100vh', position: 'relative', overflow: 'hidden' }}>
       <div ref={mountRef} style={{ width: '100%', height: '100%' }} />
       
-      {/* Toggle Panel Button - Only visible when panel is hidden */}
+      {/* Event Logged Toast */}
+      {showEventToast && (
+        <EventLoggedToast 
+          eventNumber={toastEventNumber} 
+          onComplete={() => setShowEventToast(false)} 
+        />
+      )}
+      
+      {/* Toggle Panel Button */}
       {!isPanelVisible && (
         <button
           onClick={() => setIsPanelVisible(true)}
@@ -1531,7 +1911,7 @@ const InjuryTimeline = () => {
         </button>
       )}
       
-      {/* Overlay - tap to close panel on mobile */}
+      {/* Mobile overlay */}
       {isPanelVisible && typeof window !== 'undefined' && window.innerWidth <= 768 && (
         <div
           onClick={() => setIsPanelVisible(false)}
@@ -1548,445 +1928,393 @@ const InjuryTimeline = () => {
         />
       )}
       
-      {/* Info Panel */}
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          position: 'absolute',
-          top: '20px',
-          left: isPanelVisible ? '20px' : '-400px',
-          background: 'linear-gradient(135deg, rgba(10, 10, 20, 0.85), rgba(20, 10, 30, 0.9))',
-          color: 'white',
-          padding: '18px',
-          borderRadius: '16px',
-          maxWidth: '350px',
-          width: 'calc(100vw - 40px)',
-          maxHeight: 'calc(100vh - 40px)',
-          overflowY: 'auto',
-          backdropFilter: 'blur(20px) saturate(180%)',
-          border: '1px solid rgba(255, 255, 255, 0.15)',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05) inset',
-          transition: 'left 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-          zIndex: 999,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-          <h1 style={{ 
-            margin: '0', 
-            fontSize: window.innerWidth < 480 ? '19px' : '24px', 
-            background: 'linear-gradient(135deg, #ff33ff, #8844ff)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            fontWeight: '700',
-            letterSpacing: '-0.5px',
-          }}>
-            Injury Recovery Timeline
-          </h1>
-          <button
-            onClick={() => setIsPanelVisible(false)}
-            style={{
-              background: 'linear-gradient(135deg, rgba(255, 51, 255, 0.25), rgba(136, 68, 255, 0.25))',
-              border: '1px solid rgba(255, 51, 255, 0.5)',
-              borderRadius: '8px',
-              width: '32px',
-              height: '32px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '20px',
-              color: '#ff88ff',
-              flexShrink: 0,
-              marginLeft: '10px',
-              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-              fontWeight: '300',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(255, 51, 255, 0.4), rgba(136, 68, 255, 0.4))';
-              e.currentTarget.style.transform = 'scale(1.05)';
-              e.currentTarget.style.color = '#ffaaff';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'linear-gradient(135deg, rgba(255, 51, 255, 0.25), rgba(136, 68, 255, 0.25))';
-              e.currentTarget.style.transform = 'scale(1)';
-              e.currentTarget.style.color = '#ff88ff';
-            }}
-            title="Hide panel"
-          >
-            ×
-          </button>
-        </div>
-        <div style={{ marginBottom: '10px', padding: '8px', background: 'rgba(255, 51, 255, 0.1)', borderRadius: '5px' }}>
-          <p style={{ margin: '0', fontSize: '12px', color: '#ff33ff' }}>
-            <strong>{timelineData.length} events</strong> tracked over <strong>{Math.round(timelineData[timelineData.length - 1]?.hours || 0)}h</strong>
-          </p>
-          <p style={{ margin: '5px 0 0 0', fontSize: '11px', color: '#aaa' }}>
-            Pain: {timelineData[0]?.pain}/10 → {timelineData[timelineData.length - 1]?.pain}/10 
-            ({Math.round((1 - timelineData[timelineData.length - 1]?.pain / timelineData[0]?.pain) * 100)}% improvement)
-          </p>
-        </div>
-        <p style={{ margin: '5px 0', fontSize: '14px', color: '#aaa' }}>
-          Track your recovery progress in 3D. Click events to view details.
-        </p>
-        <p style={{ margin: '5px 0 15px 0', fontSize: '12px', color: '#666' }}>
-          Arrow keys navigate events. ESC to close. Export to save or share your timeline.
-        </p>
-        <div style={{ marginTop: '10px', fontSize: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '5px' }}>
-            <div style={{ width: '15px', height: '15px', background: '#ff3333', marginRight: '10px', borderRadius: '50%' }}></div>
-            <span>Injury Event</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '5px' }}>
-            <div style={{ width: '15px', height: '15px', background: '#ff33ff', marginRight: '10px', borderRadius: '50%' }}></div>
-            <span>PT Session</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '5px' }}>
-            <div style={{ width: '15px', height: '15px', background: '#33ff99', marginRight: '10px', borderRadius: '50%' }}></div>
-            <span>Assessment</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '5px' }}>
-            <div style={{ width: '15px', height: '15px', background: '#ffaa33', marginRight: '10px', borderRadius: '50%' }}></div>
-            <span>Intervention</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center' }}>
-            <div style={{ width: '15px', height: '15px', background: '#6666ff', marginRight: '10px', borderRadius: '50%' }}></div>
-            <span>Rest Period</span>
-          </div>
-        </div>
-        <p style={{ marginTop: '15px', fontSize: '11px', color: '#666' }}>
-          Height = Pain level (lower is better)
-        </p>
-        
-        {/* Management Buttons */}
-        <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <button
-            onClick={() => setShowAddForm(true)}
-            style={{
-              padding: '12px 16px',
-              background: 'linear-gradient(135deg, #ff33ff, #aa22cc)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              borderRadius: '10px',
-              color: 'white',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: '600',
-              boxShadow: '0 4px 12px rgba(255, 51, 255, 0.3)',
-              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'linear-gradient(135deg, #ff55ff, #cc44ee)';
-              e.currentTarget.style.transform = 'translateY(-1px)';
-              e.currentTarget.style.boxShadow = '0 6px 16px rgba(255, 51, 255, 0.4)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'linear-gradient(135deg, #ff33ff, #aa22cc)';
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 51, 255, 0.3)';
-            }}
-          >
-            + Add Update
-          </button>
-          
-          <div style={{ display: 'flex', gap: '8px' }}>
+      {/* Left Info Panel */}
+      {isPanelVisible && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '20px',
+            left: '20px',
+            maxWidth: '350px',
+            width: 'calc(100vw - 40px)',
+            maxHeight: 'calc(100vh - 40px)',
+            overflowY: 'auto',
+            background: 'rgba(10, 10, 20, 0.9)',
+            backdropFilter: 'blur(10px)',
+            padding: '15px',
+            borderRadius: '15px',
+            color: 'white',
+            zIndex: 999,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            animation: 'slideIn 0.3s ease',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
+            <h1 style={{ margin: 0, fontSize: window.innerWidth < 480 ? '18px' : '22px', color: '#ff33ff' }}>
+              Recovery Timeline
+            </h1>
             <button
-              onClick={exportTimeline}
+              onClick={() => setIsPanelVisible(false)}
               style={{
-                flex: 1,
-                padding: '10px',
-                background: 'linear-gradient(135deg, #4488ff, #2266dd)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
+                background: 'linear-gradient(135deg, rgba(255, 51, 255, 0.25), rgba(136, 68, 255, 0.25))',
+                border: '1px solid rgba(255, 51, 255, 0.4)',
                 borderRadius: '8px',
-                color: 'white',
+                width: '32px',
+                height: '32px',
                 cursor: 'pointer',
-                fontSize: '12px',
-                fontWeight: '500',
-                boxShadow: '0 2px 8px rgba(68, 136, 255, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '18px',
+                color: '#ff88ff',
+                marginLeft: '10px',
                 transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                fontWeight: '300',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, #5599ff, #3377ee)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(68, 136, 255, 0.4)';
+                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(255, 51, 255, 0.4), rgba(136, 68, 255, 0.4))';
+                e.currentTarget.style.transform = 'scale(1.05)';
+                e.currentTarget.style.color = '#ffaaff';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, #4488ff, #2266dd)';
-                e.currentTarget.style.boxShadow = '0 2px 8px rgba(68, 136, 255, 0.3)';
+                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(255, 51, 255, 0.25), rgba(136, 68, 255, 0.25))';
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.color = '#ff88ff';
               }}
+              title="Hide panel"
             >
-              Export
+              ×
             </button>
-            
-            <label style={{ flex: 1 }}>
-              <input
-                type="file"
-                accept=".json"
-                onChange={importTimeline}
-                style={{ display: 'none' }}
-              />
-              <div style={{
-                padding: '10px',
-                background: 'linear-gradient(135deg, #4488ff, #2266dd)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                borderRadius: '8px',
-                color: 'white',
-                cursor: 'pointer',
-                fontSize: '12px',
-                fontWeight: '500',
-                textAlign: 'center',
-                boxShadow: '0 2px 8px rgba(68, 136, 255, 0.3)',
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, #5599ff, #3377ee)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(68, 136, 255, 0.4)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, #4488ff, #2266dd)';
-                e.currentTarget.style.boxShadow = '0 2px 8px rgba(68, 136, 255, 0.3)';
-              }}>
-                Import
-              </div>
-            </label>
           </div>
           
-          <button
-            onClick={resetTimeline}
-            style={{
-              padding: '6px',
-              background: '#ff3333',
-              border: 'none',
-              borderRadius: '5px',
-              color: 'white',
-              cursor: 'pointer',
-              fontSize: '10px',
-            }}
-          >
-            Reset to Default
-          </button>
-          
-          <button
-            onClick={clearTimeline}
-            style={{
-              padding: '6px',
-              background: '#ffaa33',
-              border: 'none',
-              borderRadius: '5px',
-              color: 'white',
-              cursor: 'pointer',
-              fontSize: '10px',
-            }}
-          >
-            🆕 Start Fresh Timeline
-          </button>
-        </div>
-        
-        {/* Quick Instructions */}
-        <div style={{ 
-          marginTop: '15px', 
-          padding: '10px', 
-          background: 'rgba(68, 136, 255, 0.1)', 
-          borderRadius: '5px',
-          border: '1px solid rgba(68, 136, 255, 0.3)'
-        }}>
-          <p style={{ margin: '0 0 5px 0', fontSize: '11px', fontWeight: 'bold', color: '#4488ff' }}>
-            💡 Quick Start Guide:
-          </p>
-          <p style={{ margin: '0', fontSize: '10px', color: '#aaa', lineHeight: '1.4' }}>
-            <strong style={{ color: '#4488ff' }}>New User?</strong><br/>
-            1. Click "🆕 Start Fresh Timeline" below<br/>
-            2. Click "Add Update" to log your first injury event<br/>
-            3. Continue adding updates as you recover<br/>
-            <br/>
-            <strong style={{ color: '#4488ff' }}>Viewing a Shared Timeline?</strong><br/>
-            • Click events to view details<br/>
-            • Use arrow keys to navigate<br/>
-            • Click milestone spheres for VFX! 🎆<br/>
-            <br/>
-            <span style={{ fontSize: '9px', color: '#666' }}>📦 Auto-saves to browser | Export to backup</span>
-          </p>
-        </div>
-        
-        {/* Achievements Panel */}
-        {timelineData.filter(e => e.isMilestone).length > 0 && (
-          <div style={{
-            marginTop: '15px',
-            padding: '12px',
-            background: 'rgba(255, 221, 85, 0.1)',
-            borderRadius: '5px',
-            border: '1px solid rgba(255, 221, 85, 0.3)',
+          {/* Live Time Since Injury Counter */}
+          <div style={{ 
+            marginBottom: '12px', 
+            padding: '12px', 
+            background: 'linear-gradient(135deg, rgba(255, 51, 255, 0.15), rgba(68, 136, 255, 0.15))', 
+            borderRadius: '10px',
+            border: '1px solid rgba(255, 51, 255, 0.2)',
           }}>
-            <h3 style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#ffdd55', fontWeight: 'bold' }}>
-              🏆 Milestones Achieved
-            </h3>
-            <div style={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              gap: '6px',
-              maxHeight: '200px',
-              overflowY: 'auto',
-              paddingRight: '5px'
-            }}>
-              {timelineData.filter(e => e.isMilestone).map((event) => {
-                const tierColors = {
-                  1: '#aaaaaa',
-                  2: '#ffffaa',
-                  3: '#ffdd55',
-                  4: '#ff88ff',
-                  5: '#ff00ff',
-                  6: '#ff0088',
-                };
-                const typeIcons = {
-                  'stability': '🛡️',
-                  'mobility': '🦵',
-                  'brace': '🧱',
-                  'mobility-brace': '💪',
-                  'impact': '💥',
-                  'sport-skill': '🤼',
-                  'contact': '⚡',
-                };
-                
-                const tier = event.milestone?.tier || 1;
-                const type = event.milestone?.type || 'stability';
-                const label = event.milestone?.label || event.title;
-                const icon = typeIcons[type] || '✓';
-                const color = tierColors[tier] || '#aaaaaa';
-                
-                return (
-                  <button
-                    key={event.id}
-                    onClick={() => {
-                      const idx = timelineData.findIndex(e => e.id === event.id);
-                      if (idx !== -1) {
-                        setSelectedIndex(idx);
-                        setSelectedEvent(event);
-                        setSelectedEventId(event.id);
-                        selectedIndexRef.current = idx;
-                        isRotatingRef.current = false;
-                      }
-                    }}
-                    style={{
-                      padding: '8px',
-                      background: selectedEventId === event.id 
-                        ? 'rgba(255, 221, 85, 0.2)' 
-                        : 'rgba(0, 0, 0, 0.3)',
-                      border: `1px solid ${color}`,
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      transition: 'all 0.2s',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'rgba(255, 221, 85, 0.15)';
-                      e.currentTarget.style.transform = 'translateX(3px)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = selectedEventId === event.id 
-                        ? 'rgba(255, 221, 85, 0.2)' 
-                        : 'rgba(0, 0, 0, 0.3)';
-                      e.currentTarget.style.transform = 'translateX(0)';
-                    }}
-                  >
-                    <span style={{ fontSize: '16px' }}>{icon}</span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '11px', color: color, fontWeight: 'bold' }}>
-                        Tier {tier}
-                      </div>
-                      <div style={{ fontSize: '10px', color: '#ccc', marginTop: '2px' }}>
-                        {label}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
+            <p style={{ margin: '0 0 8px 0', fontSize: '10px', color: '#888', textTransform: 'uppercase', letterSpacing: '1px', textAlign: 'center' }}>
+              Time Since Injury
+            </p>
+            <TimeSinceInjury injuryDate={injuryDate} />
+          </div>
+          
+          {/* Stats row */}
+          <div style={{ marginBottom: '10px', padding: '8px', background: 'rgba(255, 51, 255, 0.1)', borderRadius: '5px' }}>
+            <p style={{ margin: '0', fontSize: '12px', color: '#ff33ff' }}>
+              <strong>{timelineData.length} events</strong> tracked over <strong>{Math.round(timelineData[timelineData.length - 1]?.hours || 0)}h</strong>
+            </p>
+            <p style={{ margin: '5px 0 0 0', fontSize: '11px', color: '#aaa' }}>
+              Pain: {timelineData[0]?.pain}/10 → {timelineData[timelineData.length - 1]?.pain}/10 
+              ({Math.round((1 - timelineData[timelineData.length - 1]?.pain / timelineData[0]?.pain) * 100)}% improvement)
+            </p>
+          </div>
+          
+          {/* Pain Trend Indicator */}
+          <div style={{ marginBottom: '12px' }}>
+            <PainTrendIndicator timelineData={timelineData} />
+          </div>
+          
+          <p style={{ margin: '5px 0', fontSize: '14px', color: '#aaa' }}>
+            Track your recovery progress in 3D. Click events to view details.
+          </p>
+          <p style={{ margin: '5px 0 15px 0', fontSize: '12px', color: '#666' }}>
+            Arrow keys navigate events. ESC to close. Export to save or share your timeline.
+          </p>
+          
+          {/* Legend */}
+          <div style={{ marginTop: '10px', fontSize: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '5px' }}>
+              <div style={{ width: '15px', height: '15px', background: '#ff3333', marginRight: '10px', borderRadius: '50%' }}></div>
+              <span>Injury Event</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '5px' }}>
+              <div style={{ width: '15px', height: '15px', background: '#ff33ff', marginRight: '10px', borderRadius: '50%' }}></div>
+              <span>PT Session</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '5px' }}>
+              <div style={{ width: '15px', height: '15px', background: '#33ff99', marginRight: '10px', borderRadius: '50%' }}></div>
+              <span>Assessment</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '5px' }}>
+              <div style={{ width: '15px', height: '15px', background: '#ffaa33', marginRight: '10px', borderRadius: '50%' }}></div>
+              <span>Intervention</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <div style={{ width: '15px', height: '15px', background: '#6666ff', marginRight: '10px', borderRadius: '50%' }}></div>
+              <span>Rest Period</span>
             </div>
           </div>
-        )}
-      </div>
+          <p style={{ marginTop: '15px', fontSize: '11px', color: '#666' }}>
+            Height = Pain level (lower is better)
+          </p>
+          
+          {/* Management Buttons */}
+          <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <button
+              onClick={() => setShowAddForm(true)}
+              style={{
+                padding: '12px 16px',
+                background: 'linear-gradient(135deg, #ff33ff, #aa22cc)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                borderRadius: '10px',
+                color: 'white',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '600',
+                boxShadow: '0 4px 12px rgba(255, 51, 255, 0.3)',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, #ff55ff, #cc44ee)';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 6px 16px rgba(255, 51, 255, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, #ff33ff, #aa22cc)';
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 51, 255, 0.3)';
+              }}
+            >
+              + Add Update
+            </button>
+            
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={exportTimeline}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  background: 'linear-gradient(135deg, #4488ff, #2266dd)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  borderRadius: '8px',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  boxShadow: '0 2px 8px rgba(68, 136, 255, 0.3)',
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #5599ff, #3377ee)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(68, 136, 255, 0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #4488ff, #2266dd)';
+                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(68, 136, 255, 0.3)';
+                }}
+              >
+                Export
+              </button>
+              
+              <label style={{ flex: 1 }}>
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={importTimeline}
+                  style={{ display: 'none' }}
+                />
+                <div style={{
+                  padding: '10px',
+                  background: 'linear-gradient(135deg, #4488ff, #2266dd)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  borderRadius: '8px',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  textAlign: 'center',
+                  boxShadow: '0 2px 8px rgba(68, 136, 255, 0.3)',
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #5599ff, #3377ee)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(68, 136, 255, 0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'linear-gradient(135deg, #4488ff, #2266dd)';
+                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(68, 136, 255, 0.3)';
+                }}>
+                  Import
+                </div>
+              </label>
+            </div>
+            
+            <button
+              onClick={resetTimeline}
+              style={{
+                padding: '6px',
+                background: '#ff3333',
+                border: 'none',
+                borderRadius: '5px',
+                color: 'white',
+                cursor: 'pointer',
+                fontSize: '10px',
+              }}
+            >
+              Reset to Default
+            </button>
+            
+            <button
+              onClick={clearTimeline}
+              style={{
+                padding: '6px',
+                background: '#ffaa33',
+                border: 'none',
+                borderRadius: '5px',
+                color: 'white',
+                cursor: 'pointer',
+                fontSize: '10px',
+              }}
+            >
+              🆕 Start Fresh Timeline
+            </button>
+          </div>
+          
+          {/* Achievements Panel */}
+          {timelineData.filter(e => e.isMilestone).length > 0 && (
+            <div style={{
+              marginTop: '15px',
+              padding: '12px',
+              background: 'rgba(255, 221, 85, 0.1)',
+              borderRadius: '5px',
+              border: '1px solid rgba(255, 221, 85, 0.3)',
+            }}>
+              <h3 style={{ margin: '0 0 10px 0', fontSize: '13px', color: '#ffdd55', fontWeight: 'bold' }}>
+                🏆 Milestones Achieved
+              </h3>
+              <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '6px',
+                maxHeight: '200px',
+                overflowY: 'auto',
+                paddingRight: '5px'
+              }}>
+                {timelineData.filter(e => e.isMilestone).map((event) => {
+                  const tierColors = {
+                    1: '#aaaaaa',
+                    2: '#ffffaa',
+                    3: '#ffdd55',
+                    4: '#ff88ff',
+                    5: '#ff00ff',
+                    6: '#ff0088',
+                  };
+                  const typeIcons = {
+                    'stability': '🛡️',
+                    'mobility': '🦵',
+                    'brace': '🧱',
+                    'mobility-brace': '💪',
+                    'impact': '💥',
+                    'sport-skill': '🤼',
+                    'contact': '⚡',
+                  };
+                  
+                  const tier = event.milestone?.tier || 1;
+                  const type = event.milestone?.type || 'stability';
+                  const label = event.milestone?.label || event.title;
+                  const icon = typeIcons[type] || '✓';
+                  const color = tierColors[tier] || '#aaaaaa';
+                  
+                  return (
+                    <button
+                      key={event.id}
+                      onClick={() => {
+                        const idx = timelineData.findIndex(e => e.id === event.id);
+                        if (idx !== -1) {
+                          setSelectedIndex(idx);
+                          setSelectedEvent(event);
+                          setSelectedEventId(event.id);
+                          selectedIndexRef.current = idx;
+                          isRotatingRef.current = false;
+                        }
+                      }}
+                      style={{
+                        padding: '8px',
+                        background: selectedEventId === event.id 
+                          ? 'rgba(255, 221, 85, 0.2)' 
+                          : 'rgba(0, 0, 0, 0.3)',
+                        border: `1px solid ${color}`,
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'all 0.2s',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(255, 221, 85, 0.15)';
+                        e.currentTarget.style.transform = 'translateX(3px)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = selectedEventId === event.id 
+                          ? 'rgba(255, 221, 85, 0.2)' 
+                          : 'rgba(0, 0, 0, 0.3)';
+                        e.currentTarget.style.transform = 'translateX(0)';
+                      }}
+                    >
+                      <span style={{ fontSize: '16px' }}>{icon}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '11px', color: color, fontWeight: 'bold' }}>
+                          Tier {tier}
+                        </div>
+                        <div style={{ fontSize: '10px', color: '#ccc', marginTop: '2px' }}>
+                          {label}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Event Detail Panel */}
       {selectedEvent && (
         <div
-          onClick={(e) => e.stopPropagation()}
           style={{
             position: 'absolute',
             top: '20px',
             right: '20px',
-            background: selectedEvent.isMilestone
-              ? 'linear-gradient(135deg, rgba(30, 20, 10, 0.92), rgba(40, 30, 20, 0.95))'
-              : 'linear-gradient(135deg, rgba(10, 10, 20, 0.90), rgba(20, 10, 30, 0.92))',
-            color: 'white',
-            padding: '16px',
-            borderRadius: '16px',
-            maxWidth: '320px',
-            width: typeof window !== 'undefined' && window.innerWidth <= 768 
-              ? 'calc(100vw - 40px)' 
-              : '320px',
-            maxHeight: typeof window !== 'undefined' && window.innerWidth <= 768
-              ? '50vh'
-              : '55vh',
+            maxWidth: '350px',
+            width: 'calc(100vw - 40px)',
+            maxHeight: 'calc(100vh - 40px)',
             overflowY: 'auto',
-            overflowX: 'hidden',
-            backdropFilter: 'blur(20px) saturate(180%)',
-            border: selectedEvent.isMilestone 
-              ? '1px solid rgba(255, 221, 85, 0.4)' 
-              : '1px solid rgba(255, 255, 255, 0.15)',
-            boxShadow: selectedEvent.isMilestone
-              ? '0 8px 32px rgba(255, 221, 85, 0.25), 0 0 60px rgba(255, 221, 85, 0.15), 0 0 0 1px rgba(255, 221, 85, 0.1) inset'
-              : '0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05) inset',
-            animation: 'slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+            background: 'rgba(10, 10, 20, 0.95)',
+            backdropFilter: 'blur(10px)',
+            padding: '15px',
+            borderRadius: '15px',
+            color: 'white',
+            zIndex: 100,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            animation: 'slideIn 0.3s ease',
           }}
         >
-          {/* Scroll Hint - appears when content is longer than container */}
-          <div style={{
-            marginBottom: '12px',
-            padding: '6px 10px',
-            background: 'rgba(136, 68, 255, 0.15)',
-            borderRadius: '8px',
-            border: '1px solid rgba(136, 68, 255, 0.3)',
-            fontSize: '11px',
-            color: '#aa88ff',
-            textAlign: 'center',
-            fontWeight: '500',
-          }}>
-            ↕️ Scroll to see more
-          </div>
-          
           {selectedEvent.isMilestone && (
             <div style={{
-              marginBottom: '14px',
-              padding: '10px 14px',
-              background: 'linear-gradient(135deg, rgba(255, 221, 85, 0.2), rgba(255, 200, 50, 0.15))',
-              borderRadius: '10px',
-              border: '1px solid rgba(255, 221, 85, 0.3)',
+              marginBottom: '10px',
+              padding: '8px 12px',
+              background: 'linear-gradient(135deg, rgba(255, 221, 85, 0.2), rgba(255, 170, 0, 0.2))',
+              borderRadius: '8px',
+              border: '1px solid rgba(255, 221, 85, 0.4)',
               display: 'flex',
               alignItems: 'center',
-              gap: '10px',
-              boxShadow: '0 0 20px rgba(255, 221, 85, 0.1) inset',
+              gap: '8px',
             }}>
-              <span style={{ fontSize: '20px' }}>
-                {selectedEvent.milestone?.type === 'stability' && '🛡️'}
-                {selectedEvent.milestone?.type === 'mobility' && '🦵'}
-                {selectedEvent.milestone?.type === 'brace' && '🧱'}
-                {selectedEvent.milestone?.type === 'mobility-brace' && '💪'}
-                {selectedEvent.milestone?.type === 'impact' && '💥'}
-                {selectedEvent.milestone?.type === 'sport-skill' && '🤼'}
-                {selectedEvent.milestone?.type === 'contact' && '⚡'}
-                {!selectedEvent.milestone?.type && '🏆'}
-              </span>
-              <div style={{ flex: 1 }}>
-                <div style={{ 
-                  fontSize: '11px', 
-                  color: '#ffdd55', 
-                  fontWeight: '700',
-                  letterSpacing: '0.5px',
-                  textTransform: 'uppercase',
-                }}>
-                  Milestone - Tier {selectedEvent.milestone?.tier || 1}
+              <span style={{ fontSize: '20px' }}>🏆</span>
+              <div>
+                <div style={{ fontSize: '11px', color: '#ffdd55', fontWeight: 'bold' }}>
+                  MILESTONE - Tier {selectedEvent.milestone?.tier || 1}
                 </div>
-                <div style={{ fontSize: '12px', color: '#ffffcc', marginTop: '3px', fontWeight: '500' }}>
-                  {selectedEvent.milestone?.label}
+                <div style={{ fontSize: '10px', color: '#ccc' }}>
+                  {selectedEvent.milestone?.label || selectedEvent.title}
                 </div>
               </div>
             </div>
